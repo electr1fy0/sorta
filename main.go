@@ -14,23 +14,39 @@ type ConfigData struct {
 }
 
 func main() {
-	path := getPath()
+	path, mode := getPathAndMode()
 	fmt.Println("Dir: ", path)
-	filterFiles(path)
-	// configData := parseConfig() // currently WIP
+	configData := parseConfig()
 
+	filterFiles(path, configData, mode)
+
+}
+func createCustomFolder(path, foldername string) {
+	os.MkdirAll(filepath.Join(path, foldername), 0700)
 }
 
 func createDefaultFolders(path string) {
 	os.MkdirAll(filepath.Join(path, "docs"), 0700)
 	os.MkdirAll(filepath.Join(path, "images"), 0700)
+
 }
 
 func moveFile(folder, subfolder, filename string) {
 	os.Rename(filepath.Join(folder, filename), filepath.Join(folder, subfolder, filename))
 }
 
-func filterFiles(path string) {
+func categorize(configData ConfigData, filename string) string {
+	for i, foldername := range configData.foldernames {
+		for j := 0; j < len(configData.keywords[i]); j++ {
+			if strings.Contains(filename, configData.keywords[i][j]) {
+				return foldername
+			}
+		}
+	}
+	return ""
+}
+
+func filterFiles(path string, configData ConfigData, sortMode bool) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatalln("Error joining path: ", err)
@@ -40,14 +56,22 @@ func filterFiles(path string) {
 		fmt.Println(i+1, filename)
 
 		var isHidden bool = []rune(filename)[0] == '.'
-
-		createDefaultFolders(path)
 		if !isHidden {
-			switch filepath.Ext(filename) {
-			case ".pdf":
-				moveFile(path, "docs", filename)
-			case ".png", ".jpg", ".jpeg":
-				moveFile(path, "images", filename)
+			if !sortMode {
+				createDefaultFolders(path)
+				switch filepath.Ext(filename) {
+				case ".pdf":
+					moveFile(path, "docs", filename)
+				case ".png", ".jpg", ".jpeg":
+					moveFile(path, "images", filename)
+				}
+
+			} else {
+				foldername := categorize(configData, filename)
+				if foldername != "" {
+					createCustomFolder(path, foldername)
+				}
+				moveFile(path, foldername, filename)
 			}
 		}
 	}
@@ -70,14 +94,12 @@ func parseConfig() ConfigData {
 	}
 	configData.foldernames = make([]string, lineCount)
 	configData.keywords = make([][]string, lineCount)
-	for i := range lineCount {
-		configData.keywords[i] = make([]string, 50)
-	}
 
 	i := 0
 	for line := range strings.Lines(config) {
 
 		input := strings.Split(line, ",")
+		configData.keywords[i] = make([]string, len(input))
 
 		last := input[len(input)-1]
 		last = strings.Trim(last, "\n ")
@@ -100,19 +122,18 @@ func parseConfig() ConfigData {
 
 // add duplicate removal
 
-func createCustomFolder(path, foldername string) {
-	os.MkdirAll(filepath.Join(path, foldername), 0700)
-
-}
-
-func getPath() string {
+func getPathAndMode() (string, bool) {
 	fmt.Println("Enter the directory (relative to ~/):")
 	var dir string
 	fmt.Scanf("%s", &dir)
+	fmt.Println("Enter mode of sorting (0: extension based, 1 : keyword based):")
+	var n int
+	fmt.Scanf("%d", &n)
+	mode := n != 0
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalln("Error joining path", err)
 	}
 	path := filepath.Join(home, dir)
-	return path
+	return path, mode
 }
