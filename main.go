@@ -116,11 +116,7 @@ func parseConfig() ConfigData {
 	return configData
 }
 
-// do custom patterns read from a config file where if a file starts with these certain words then create those certain folders
-// like fallsem, wintersem creates a vtop folder
-//
-
-// add duplicate removal
+// todo: add duplicate removal
 
 func getPathAndMode() (string, bool) {
 	fmt.Println("Enter the directory (relative to ~/):")
