@@ -17,7 +17,7 @@ type ConfigData map[string][]string
 
 func main() {
 	path, mode := getPathAndMode()
-	fmt.Println("Dir: ", path)
+	fmt.Println("Dir:", path)
 
 	err := filterFiles(path, mode)
 	if err != nil {
@@ -53,43 +53,43 @@ func filterFiles(path string, sortMode int) error {
 	}
 	for i, entry := range entries {
 		filename := entry.Name()
-		if entry.IsDir() {
-			filename += " (dir)"
-		}
-
-		fmt.Printf("%-5d   | %s\n", i+1, filename)
 
 		var isHidden bool = []rune(filename)[0] == '.'
-
-		if !isHidden && !entry.IsDir() {
-			if sortMode == 0 {
-				createFolder(path, "docs")
-				createFolder(path, "images")
-				switch filepath.Ext(filename) {
-				case ".pdf":
-					err := moveFile(path, "docs", filename)
-					if err != nil {
-						return err
-					}
-				case ".png", ".jpg", ".jpeg":
-					err := moveFile(path, "images", filename)
-					if err != nil {
-						return err
-					}
-
-				}
-
-			} else {
-				configData, err := parseConfig()
+		var isDir = entry.IsDir()
+		if isDir {
+			filename += " (dir)"
+		}
+		fmt.Printf("%-5d   | %s\n", i+1, filename)
+		if isHidden || isDir {
+			continue
+		}
+		if sortMode == 0 {
+			createFolder(path, "docs")
+			createFolder(path, "images")
+			switch filepath.Ext(filename) {
+			case ".pdf":
+				err := moveFile(path, "docs", filename)
 				if err != nil {
 					return err
 				}
-				foldername := categorize(configData, filename)
-				if foldername != "" {
-					createFolder(path, foldername)
+			case ".png", ".jpg", ".jpeg":
+				err := moveFile(path, "images", filename)
+				if err != nil {
+					return err
 				}
-				moveFile(path, foldername, filename)
+
 			}
+
+		} else {
+			configData, err := parseConfig()
+			if err != nil {
+				return err
+			}
+			foldername := categorize(configData, filename)
+			if foldername != "" {
+				createFolder(path, foldername)
+			}
+			moveFile(path, foldername, filename)
 		}
 	}
 	return nil
