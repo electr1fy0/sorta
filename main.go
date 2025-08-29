@@ -5,24 +5,23 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// The logic:
-// 1. If file ends with png, jpeg, mkdir images
-// 2. rename all files to the dir
-// 3. etc
-// 4. rest of the files go to random
-
-// Check if dir has images (img count != 0)
-// Mkdir
+type ConfigData struct {
+	foldernames []string
+	keywords    [][]string
+}
 
 func main() {
 	path := getPath()
 	fmt.Println("Dir: ", path)
 	filterFiles(path)
+	// configData := parseConfig() // currently WIP
+
 }
 
-func createFolders(path string) {
+func createDefaultFolders(path string) {
 	os.MkdirAll(filepath.Join(path, "docs"), 0700)
 	os.MkdirAll(filepath.Join(path, "images"), 0700)
 }
@@ -40,16 +39,70 @@ func filterFiles(path string) {
 		filename := entry.Name()
 		fmt.Println(i+1, filename)
 
-		createFolders(path)
+		var isHidden bool = []rune(filename)[0] == '.'
 
-		switch filepath.Ext(filename) {
-		case ".pdf":
-			moveFile(path, "docs", filename)
-		case ".png", ".jpg", ".jpeg":
-			moveFile(path, "images", filename)
+		createDefaultFolders(path)
+		if !isHidden {
+			switch filepath.Ext(filename) {
+			case ".pdf":
+				moveFile(path, "docs", filename)
+			case ".png", ".jpg", ".jpeg":
+				moveFile(path, "images", filename)
+			}
 		}
-
 	}
+}
+
+func readConfigFile() string {
+	home, _ := os.UserHomeDir()
+	configBytes, _ := os.ReadFile(filepath.Join(home, ".sorta-config"))
+	config := string(configBytes)
+	return config
+}
+
+func parseConfig() ConfigData {
+	config := readConfigFile()
+	var configData ConfigData
+
+	lineCount := strings.Count(config, "\n")
+	if []rune(config)[len(config)-1] != rune('\n') {
+		lineCount++
+	}
+	configData.foldernames = make([]string, lineCount)
+	configData.keywords = make([][]string, lineCount)
+	for i := range lineCount {
+		configData.keywords[i] = make([]string, 50)
+	}
+
+	i := 0
+	for line := range strings.Lines(config) {
+
+		input := strings.Split(line, ",")
+
+		last := input[len(input)-1]
+		last = strings.Trim(last, "\n ")
+
+		lastSplit := strings.Split(last, "=")
+
+		input[len(input)-1] = lastSplit[0]
+		output := lastSplit[1]
+		configData.foldernames[i] = output
+		configData.keywords[i] = input
+		i++
+	}
+
+	return configData
+}
+
+// do custom patterns read from a config file where if a file starts with these certain words then create those certain folders
+// like fallsem, wintersem creates a vtop folder
+//
+
+// add duplicate removal
+
+func createCustomFolder(path, foldername string) {
+	os.MkdirAll(filepath.Join(path, foldername), 0700)
+
 }
 
 func getPath() string {
