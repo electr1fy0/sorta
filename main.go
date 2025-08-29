@@ -8,10 +8,12 @@ import (
 	"strings"
 )
 
-type ConfigData struct {
-	foldernames []string
-	keywords    [][]string
-}
+// type ConfigData struct {
+// 	foldernames []string
+// 	keywords    [][]string
+// }
+
+type ConfigData map[string][]string
 
 func main() {
 	path, mode := getPathAndMode()
@@ -34,9 +36,9 @@ func moveFile(folder, subfolder, filename string) error {
 }
 
 func categorize(configData ConfigData, filename string) string {
-	for i, foldername := range configData.foldernames {
-		for j := 0; j < len(configData.keywords[i]); j++ {
-			if strings.Contains(filename, configData.keywords[i][j]) {
+	for foldername, keywords := range configData {
+		for _, keyword := range keywords {
+			if strings.Contains(filename, keyword) {
 				return foldername
 			}
 		}
@@ -51,10 +53,15 @@ func filterFiles(path string, sortMode int) error {
 	}
 	for i, entry := range entries {
 		filename := entry.Name()
-		fmt.Println(i+1, filename)
+		if entry.IsDir() {
+			filename += " (dir)"
+		}
+
+		fmt.Printf("%-5d   | %s\n", i+1, filename)
 
 		var isHidden bool = []rune(filename)[0] == '.'
-		if !isHidden {
+
+		if !isHidden && !entry.IsDir() {
 			if sortMode == 0 {
 				createFolder(path, "docs")
 				createFolder(path, "images")
@@ -69,6 +76,7 @@ func filterFiles(path string, sortMode int) error {
 					if err != nil {
 						return err
 					}
+
 				}
 
 			} else {
@@ -108,15 +116,13 @@ func parseConfig() (ConfigData, error) {
 	if []rune(config)[len(config)-1] != rune('\n') {
 		lineCount++
 	}
-	configData.foldernames = make([]string, lineCount)
-	configData.keywords = make([][]string, lineCount)
+
+	configData = make(map[string][]string)
 
 	i := 0
 	for line := range strings.Lines(config) {
 
 		input := strings.Split(line, ",")
-		configData.keywords[i] = make([]string, len(input))
-
 		last := input[len(input)-1]
 		last = strings.Trim(last, "\n ")
 
@@ -124,8 +130,7 @@ func parseConfig() (ConfigData, error) {
 
 		input[len(input)-1] = lastSplit[0]
 		output := lastSplit[1]
-		configData.foldernames[i] = output
-		configData.keywords[i] = input
+		configData[output] = input
 		i++
 	}
 
