@@ -16,9 +16,8 @@ type ConfigData struct {
 func main() {
 	path, mode := getPathAndMode()
 	fmt.Println("Dir: ", path)
-	configData := parseConfig()
 
-	filterFiles(path, configData, mode)
+	filterFiles(path, mode)
 
 }
 func createCustomFolder(path, foldername string) {
@@ -46,7 +45,7 @@ func categorize(configData ConfigData, filename string) string {
 	return ""
 }
 
-func filterFiles(path string, configData ConfigData, sortMode bool) {
+func filterFiles(path string, sortMode int) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatalln("Error joining path: ", err)
@@ -57,7 +56,7 @@ func filterFiles(path string, configData ConfigData, sortMode bool) {
 
 		var isHidden bool = []rune(filename)[0] == '.'
 		if !isHidden {
-			if !sortMode {
+			if sortMode == 0 {
 				createDefaultFolders(path)
 				switch filepath.Ext(filename) {
 				case ".pdf":
@@ -67,6 +66,7 @@ func filterFiles(path string, configData ConfigData, sortMode bool) {
 				}
 
 			} else {
+				configData := parseConfig()
 				foldername := categorize(configData, filename)
 				if foldername != "" {
 					createCustomFolder(path, foldername)
@@ -118,14 +118,13 @@ func parseConfig() ConfigData {
 
 // todo: add duplicate removal
 
-func getPathAndMode() (string, bool) {
+func getPathAndMode() (string, int) {
 	fmt.Println("Enter the directory (relative to ~/):")
 	var dir string
 	fmt.Scanf("%s", &dir)
 	fmt.Println("Enter mode of sorting (0: extension based, 1 : keyword based):")
-	var n int
-	fmt.Scanf("%d", &n)
-	mode := n != 0
+	var mode int
+	fmt.Scanf("%d", &mode)
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalln("Error joining path", err)
