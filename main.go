@@ -8,10 +8,7 @@ import (
 	"strings"
 )
 
-// type ConfigData struct {
-// 	foldernames []string
-// 	keywords    [][]string
-// }
+// todo: add duplicate removal
 
 type ConfigData map[string][]string
 
@@ -66,18 +63,23 @@ func filterFiles(path string, sortMode int) error {
 		if sortMode == 0 {
 			createFolder(path, "docs")
 			createFolder(path, "images")
-			switch filepath.Ext(filename) {
-			case ".pdf":
+			createFolder(path, "movies")
+			switch strings.ToLower(filepath.Ext(filename)) {
+			case ".pdf", ".docx", ".pages", ".md", ".txt":
 				err := moveFile(path, "docs", filename)
 				if err != nil {
 					return err
 				}
-			case ".png", ".jpg", ".jpeg":
+			case ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp":
 				err := moveFile(path, "images", filename)
 				if err != nil {
 					return err
 				}
-
+			case ".mp4", ".mov":
+				err := moveFile(path, "movies", filename)
+				if err != nil {
+					return err
+				}
 			}
 
 		} else {
@@ -87,9 +89,18 @@ func filterFiles(path string, sortMode int) error {
 			}
 			foldername := categorize(configData, filename)
 			if foldername != "" {
-				createFolder(path, foldername)
+				err := createFolder(path, foldername)
+				if err != nil {
+					return err
+				}
+			} else {
+				fmt.Println("Folder name is empty")
+				os.Exit(1)
 			}
-			moveFile(path, foldername, filename)
+			err = moveFile(path, foldername, filename)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -97,7 +108,8 @@ func filterFiles(path string, sortMode int) error {
 
 func readConfigFile() (string, error) {
 	home, _ := os.UserHomeDir()
-	configBytes, err := os.ReadFile(filepath.Join(home, ".sorta-config"))
+	configName := ".sorta-config"
+	configBytes, err := os.ReadFile(filepath.Join(home, configName))
 	if err != nil {
 		return "", err
 	}
@@ -119,9 +131,7 @@ func parseConfig() (ConfigData, error) {
 
 	configData = make(map[string][]string)
 
-	i := 0
 	for line := range strings.Lines(config) {
-
 		input := strings.Split(line, ",")
 		last := input[len(input)-1]
 		last = strings.Trim(last, "\n ")
@@ -131,20 +141,17 @@ func parseConfig() (ConfigData, error) {
 		input[len(input)-1] = lastSplit[0]
 		output := lastSplit[1]
 		configData[output] = input
-		i++
 	}
 
 	return configData, nil
 }
-
-// todo: add duplicate removal
 
 func getPathAndMode() (string, int) {
 	fmt.Println("Enter the directory (relative to home dir):")
 	fmt.Print("~/")
 	var dir string
 	fmt.Scanf("%s", &dir)
-	fmt.Println("Enter mode of sorting (0: extension based, 1 : keyword based):")
+	fmt.Println("Enter mode of sorting (0: extension based, 1: keyword based):")
 	var mode int
 	fmt.Scanf("%d", &mode)
 	home, err := os.UserHomeDir()
