@@ -17,21 +17,20 @@ func main() {
 	path, mode := getPathAndMode()
 	fmt.Println("Dir: ", path)
 
-	filterFiles(path, mode)
+	err := filterFiles(path, mode)
+	if err != nil {
+		fmt.Println("Error filtering files: ", err)
+		os.Exit(1)
+	}
 
 }
-func createCustomFolder(path, foldername string) {
-	os.MkdirAll(filepath.Join(path, foldername), 0700)
+func createFolder(path, foldername string) error {
+	return os.MkdirAll(filepath.Join(path, foldername), 0700)
 }
 
-func createDefaultFolders(path string) {
-	os.MkdirAll(filepath.Join(path, "docs"), 0700)
-	os.MkdirAll(filepath.Join(path, "images"), 0700)
-
-}
-
-func moveFile(folder, subfolder, filename string) {
-	os.Rename(filepath.Join(folder, filename), filepath.Join(folder, subfolder, filename))
+func moveFile(folder, subfolder, filename string) error {
+	err := os.Rename(filepath.Join(folder, filename), filepath.Join(folder, subfolder, filename))
+	return err
 }
 
 func categorize(configData ConfigData, filename string) string {
@@ -45,7 +44,7 @@ func categorize(configData ConfigData, filename string) string {
 	return ""
 }
 
-func filterFiles(path string, sortMode int) {
+func filterFiles(path string, sortMode int) error {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatalln("Error joining path: ", err)
@@ -57,36 +56,53 @@ func filterFiles(path string, sortMode int) {
 		var isHidden bool = []rune(filename)[0] == '.'
 		if !isHidden {
 			if sortMode == 0 {
-				createDefaultFolders(path)
+				createFolder(path, "docs")
+				createFolder(path, "images")
 				switch filepath.Ext(filename) {
 				case ".pdf":
-					moveFile(path, "docs", filename)
+					err := moveFile(path, "docs", filename)
+					if err != nil {
+						return err
+					}
 				case ".png", ".jpg", ".jpeg":
-					moveFile(path, "images", filename)
+					err := moveFile(path, "images", filename)
+					if err != nil {
+						return err
+					}
 				}
 
 			} else {
-				configData := parseConfig()
+				configData, err := parseConfig()
+				if err != nil {
+					return err
+				}
 				foldername := categorize(configData, filename)
 				if foldername != "" {
-					createCustomFolder(path, foldername)
+					createFolder(path, foldername)
 				}
 				moveFile(path, foldername, filename)
 			}
 		}
 	}
+	return nil
 }
 
-func readConfigFile() string {
+func readConfigFile() (string, error) {
 	home, _ := os.UserHomeDir()
-	configBytes, _ := os.ReadFile(filepath.Join(home, ".sorta-config"))
+	configBytes, err := os.ReadFile(filepath.Join(home, ".sorta-config"))
+	if err != nil {
+		return "", err
+	}
 	config := string(configBytes)
-	return config
+	return config, nil
 }
 
-func parseConfig() ConfigData {
-	config := readConfigFile()
+func parseConfig() (ConfigData, error) {
 	var configData ConfigData
+	config, err := readConfigFile()
+	if err != nil {
+		return configData, err
+	}
 
 	lineCount := strings.Count(config, "\n")
 	if []rune(config)[len(config)-1] != rune('\n') {
@@ -113,13 +129,14 @@ func parseConfig() ConfigData {
 		i++
 	}
 
-	return configData
+	return configData, nil
 }
 
 // todo: add duplicate removal
 
 func getPathAndMode() (string, int) {
-	fmt.Println("Enter the directory (relative to ~/):")
+	fmt.Println("Enter the directory (relative to home dir):")
+	fmt.Print("~/")
 	var dir string
 	fmt.Scanf("%s", &dir)
 	fmt.Println("Enter mode of sorting (0: extension based, 1 : keyword based):")
