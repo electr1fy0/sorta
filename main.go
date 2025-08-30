@@ -152,6 +152,7 @@ func getPathAndMode() (string, int) {
 	var dir string
 	fmt.Scanf("%s", &dir)
 	fmt.Println("Enter mode of sorting (0: extension based, 1: keyword based):")
+	fmt.Scanf("\n")
 	var mode int
 	fmt.Scanf("%d", &mode)
 	home, err := os.UserHomeDir()
