@@ -12,6 +12,8 @@ import (
 
 type ConfigData map[string][]string
 
+// todo: scan directories recursively for duplicates
+// concurrency in system calls
 func main() {
 	path, mode := getPathAndMode()
 	fmt.Println("Dir:", path)
@@ -111,6 +113,8 @@ func filterFiles(path string, sortMode int) error {
 				if err != nil {
 					return err
 				}
+			} else {
+				hashes[digest] = fullpath
 			}
 		}
 	}
@@ -167,9 +171,9 @@ func getPathAndMode() (string, int) {
 	dir, _ = reader.ReadString('\n')
 	dir = strings.TrimSpace(dir)
 	fmt.Println("Choose mode index:")
-	fmt.Println("1: Sort based on file extension")
-	fmt.Println("2: Sort based on keywords in config")
-	fmt.Println("3: Filter duplicates")
+	fmt.Println("0: Sort based on file extension")
+	fmt.Println("1: Sort based on keywords in config")
+	fmt.Println("2: Filter duplicates")
 
 	fmt.Fscanln(reader, &mode)
 	home, err := os.UserHomeDir()
