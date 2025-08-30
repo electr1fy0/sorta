@@ -2,14 +2,13 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 )
-
-// todo: add duplicate removal
 
 type ConfigData map[string][]string
 
@@ -49,6 +48,7 @@ func filterFiles(path string, sortMode int) error {
 	if err != nil {
 		log.Fatalln("Error joining path: ", err)
 	}
+	var hashes map[string]string = make(map[string]string, len(entries))
 	for i, entry := range entries {
 		filename := entry.Name()
 
@@ -83,7 +83,7 @@ func filterFiles(path string, sortMode int) error {
 				}
 			}
 
-		} else {
+		} else if sortMode == 1 {
 			configData, err := parseConfig()
 			if err != nil {
 				return err
@@ -98,6 +98,19 @@ func filterFiles(path string, sortMode int) error {
 			err = moveFile(path, foldername, filename)
 			if err != nil {
 				return err
+			}
+		} else {
+			fullpath := filepath.Join(path, filename)
+			data, _ := os.ReadFile(fullpath)
+			checksum256 := sha256.Sum256(data)
+			digest := fmt.Sprintf("%x", checksum256)
+			fmt.Println(digest)
+			if _, exists := hashes[digest]; exists {
+				os.MkdirAll(filepath.Join(path, "duplicates"), 0700)
+				err := os.Rename(fullpath, filepath.Join(path, "duplicates", filename))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -153,7 +166,11 @@ func getPathAndMode() (string, int) {
 	reader := bufio.NewReader(os.Stdin)
 	dir, _ = reader.ReadString('\n')
 	dir = strings.TrimSpace(dir)
-	fmt.Println("Enter mode of sorting (0: extension based, 1: keyword based):")
+	fmt.Println("Choose mode index:")
+	fmt.Println("1: Sort based on file extension")
+	fmt.Println("2: Sort based on keywords in config")
+	fmt.Println("3: Filter duplicates")
+
 	fmt.Fscanln(reader, &mode)
 	home, err := os.UserHomeDir()
 	if err != nil {
