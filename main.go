@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -93,9 +94,6 @@ func filterFiles(path string, sortMode int) error {
 				if err != nil {
 					return err
 				}
-			} else {
-				fmt.Println("Folder name is empty")
-				os.Exit(1)
 			}
 			err = moveFile(path, foldername, filename)
 			if err != nil {
@@ -147,14 +145,16 @@ func parseConfig() (ConfigData, error) {
 }
 
 func getPathAndMode() (string, int) {
-	fmt.Println("Enter the directory (relative to home dir):")
+	fmt.Println("Enter the directory (relative to home dir, no quotes):")
 	fmt.Print("~/")
 	var dir string
-	fmt.Scanf("%s", &dir)
-	fmt.Println("Enter mode of sorting (0: extension based, 1: keyword based):")
-	fmt.Scanf("\n")
 	var mode int
-	fmt.Scanf("%d", &mode)
+
+	reader := bufio.NewReader(os.Stdin)
+	dir, _ = reader.ReadString('\n')
+	dir = strings.TrimSpace(dir)
+	fmt.Println("Enter mode of sorting (0: extension based, 1: keyword based):")
+	fmt.Fscanln(reader, &mode)
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalln("Error joining path", err)
