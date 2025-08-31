@@ -12,10 +12,12 @@ import (
 
 type ConfigData map[string][]string
 
-// todo: scan directories recursively for duplicates
+// TODO:
+// scan directories recursively for duplicates
 // concurrency in system calls
-// auto generate config
-// add commend support in config with // with explanation of it
+// config:
+// - handle multi word keywords
+// - add comment support with template explanation of config format
 
 func main() {
 	path, mode := getPathAndMode()
@@ -88,7 +90,6 @@ func filterFiles(path string, sortMode int) error {
 					return err
 				}
 			}
-
 		case 1:
 			configData, err := parseConfig()
 			if err != nil {
@@ -150,6 +151,7 @@ func readConfigFile() (string, error) {
 		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory") // i'm lying here
 		os.Exit(1)
 	}
+
 	config := string(configBytes)
 	if strings.TrimSpace(config) == "" {
 		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory")
@@ -173,6 +175,9 @@ func parseConfig() (ConfigData, error) {
 	configData = make(map[string][]string)
 
 	for line := range strings.Lines(config) {
+		if strings.HasPrefix(line, "//") {
+			continue
+		}
 		input := strings.Split(line, ",")
 		last := input[len(input)-1]
 		last = strings.Trim(last, "\n ")
