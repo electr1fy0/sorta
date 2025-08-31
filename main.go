@@ -14,6 +14,9 @@ type ConfigData map[string][]string
 
 // todo: scan directories recursively for duplicates
 // concurrency in system calls
+// auto generate config
+// add commend support in config with // with explanation of it
+
 func main() {
 	path, mode := getPathAndMode()
 	fmt.Println("Dir:", path)
@@ -23,7 +26,6 @@ func main() {
 		fmt.Println("Error filtering files: ", err)
 		os.Exit(1)
 	}
-
 }
 func createFolder(path, foldername string) error {
 	return os.MkdirAll(filepath.Join(path, foldername), 0700)
@@ -59,11 +61,13 @@ func filterFiles(path string, sortMode int) error {
 		if isDir {
 			filename += " (dir)"
 		}
-		fmt.Printf("%-5d   | %s\n", i+1, filename)
+
 		if isHidden || isDir {
 			continue
 		}
-		if sortMode == 0 {
+
+		switch sortMode {
+		case 0:
 			createFolder(path, "docs")
 			createFolder(path, "images")
 			createFolder(path, "movies")
@@ -85,7 +89,7 @@ func filterFiles(path string, sortMode int) error {
 				}
 			}
 
-		} else if sortMode == 1 {
+		case 1:
 			configData, err := parseConfig()
 			if err != nil {
 				return err
@@ -101,7 +105,7 @@ func filterFiles(path string, sortMode int) error {
 			if err != nil {
 				return err
 			}
-		} else {
+		case 2:
 			fullpath := filepath.Join(path, filename)
 			data, _ := os.ReadFile(fullpath)
 			checksum256 := sha256.Sum256(data)
@@ -117,18 +121,40 @@ func filterFiles(path string, sortMode int) error {
 				hashes[digest] = fullpath
 			}
 		}
+
+		fmt.Printf("%-5d   | %s\n", i+1, filename)
+
 	}
 	return nil
 }
 
+func createConfig() error {
+	home, err := os.UserHomeDir()
+	path := filepath.Join(home, ".sorta-config")
+
+	_, err = os.Create(path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func readConfigFile() (string, error) {
 	home, _ := os.UserHomeDir()
 	configName := ".sorta-config"
 	configBytes, err := os.ReadFile(filepath.Join(home, configName))
 	if err != nil {
-		return "", err
+		err = createConfig()
+		if err != nil {
+			return "", err
+		}
+		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory") // i'm lying here
+		os.Exit(1)
 	}
 	config := string(configBytes)
+	if strings.TrimSpace(config) == "" {
+		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory")
+		os.Exit(1)
+	}
 	return config, nil
 }
 
