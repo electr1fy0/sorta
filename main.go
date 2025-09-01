@@ -132,9 +132,13 @@ func filterFiles(path string, sortMode int) error {
 
 func createConfig() error {
 	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	content := []byte("// This is a config file for sorta\n// Add key1,key2,key3=value pairs in each line for keyword to folder mapping")
 	path := filepath.Join(home, ".sorta-config")
 
-	_, err = os.Create(path)
+	err = os.WriteFile(path, content, 0600)
 	if err != nil {
 		return err
 	}
@@ -157,6 +161,7 @@ func readConfigFile() (string, error) {
 	config := string(configBytes)
 	if strings.TrimSpace(config) == "" {
 		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory")
+
 		os.Exit(1)
 	}
 	return config, nil
