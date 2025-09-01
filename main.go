@@ -55,7 +55,7 @@ func filterFiles(path string, sortMode int) error {
 		log.Fatalln("Error joining path: ", err)
 	}
 	var hashes map[string]string = make(map[string]string, len(entries))
-	for i, entry := range entries {
+	for _, entry := range entries {
 		filename := entry.Name()
 
 		var isHidden bool = []rune(filename)[0] == '.'
@@ -123,9 +123,10 @@ func filterFiles(path string, sortMode int) error {
 			}
 		}
 
-		fmt.Printf("%-5d   | %s\n", i+1, filename)
+		// fmt.Printf("%-5d   | %s\n", i+1, filename)
 
 	}
+	fmt.Println("Files sorted successfuly")
 	return nil
 }
 
@@ -139,6 +140,7 @@ func createConfig() error {
 	}
 	return nil
 }
+
 func readConfigFile() (string, error) {
 	home, _ := os.UserHomeDir()
 	configName := ".sorta-config"
@@ -179,8 +181,7 @@ func parseConfig() (ConfigData, error) {
 			continue
 		}
 		input := strings.Split(line, ",")
-		last := input[len(input)-1]
-		last = strings.Trim(last, "\n ")
+		last := strings.TrimSpace(input[len(input)-1])
 
 		lastSplit := strings.Split(last, "=")
 
