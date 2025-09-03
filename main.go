@@ -29,15 +29,25 @@ type ConfigData map[string][]string
 // interactive mode: ask users what to do with unmatched files
 // something called MIME type. use that instead of ext
 
-var cmd = cobra.Command{
-	Short: "Pass filepath using flag",
-	Use:   "sorta -f ",
+var cliDir string
+
+var cmd = cobra.Command{ //todo
+	Short: "CLI to sort files based on extension and keywords",
+	Use:   "sorta []",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		for _, val := range args {
+			cliDir += val + " "
+		}
 	},
-	Args: cobra.ExactArgs(1),
+}
+
+func getPath(path string) string {
+	return path
 }
 
 func main() {
+	cmd.Execute()
 	path, mode := getPathAndMode()
 	fmt.Println("Dir:", path)
 
@@ -98,16 +108,19 @@ func filterFiles(path string, sortMode int) error {
 			case ".pdf", ".docx", ".pages", ".md", ".txt":
 				err := moveFile(path, "docs", filename)
 				moveCnt++
+				log.Println("moving1")
 				if err != nil {
 					return err
 				}
 			case ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp":
 				err := moveFile(path, "images", filename)
+				log.Println("moving1")
 				moveCnt++
 				if err != nil {
 					return err
 				}
 			case ".mp4", ".mov":
+				log.Println("moving1")
 				moveCnt++
 				err := moveFile(path, "movies", filename)
 				if err != nil {
@@ -125,12 +138,13 @@ func filterFiles(path string, sortMode int) error {
 				if err != nil {
 					return err
 				}
+				moveCnt++
+				err = moveFile(path, foldername, filename)
+				if err != nil {
+					return err
+				}
 			}
-			moveCnt++
-			err = moveFile(path, foldername, filename)
-			if err != nil {
-				return err
-			}
+
 		case 2:
 			fullpath := filepath.Join(path, filename)
 			data, _ := os.ReadFile(fullpath)
@@ -244,12 +258,21 @@ func parseConfig() (ConfigData, error) {
 
 func getPathAndMode() (string, int) {
 	fmt.Println("Enter the directory (relative to home dir, no quotes):")
-	fmt.Print("~/")
-	var dir string
-	var mode int
 
+	var mode int
+	var path string
 	reader := bufio.NewReader(os.Stdin)
-	dir, _ = reader.ReadString('\n')
+	var dir string
+	var err error
+	if strings.TrimSpace(cliDir) != "" {
+		dir = cliDir
+	} else {
+		fmt.Print("~/")
+		dir, err = reader.ReadString('\n')
+	}
+	if err != nil {
+		log.Fatalln("Error reading directory path", err)
+	}
 	dir = strings.TrimSpace(dir)
 	fmt.Println("Choose mode index:")
 	fmt.Println("0: Sort based on file extension")
@@ -261,6 +284,6 @@ func getPathAndMode() (string, int) {
 	if err != nil {
 		log.Fatalln("Error joining path", err)
 	}
-	path := filepath.Join(home, dir)
+	path = filepath.Join(home, dir)
 	return path, mode
 }
