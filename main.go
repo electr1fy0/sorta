@@ -34,7 +34,6 @@ var cliDir string
 var cmd = cobra.Command{ //todo
 	Short: "CLI to sort files based on extension and keywords",
 	Use:   "sorta []",
-	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, val := range args {
 			cliDir += val + " "
@@ -257,7 +256,6 @@ func parseConfig() (ConfigData, error) {
 }
 
 func getPathAndMode() (string, int) {
-	fmt.Println("Enter the directory (relative to home dir, no quotes):")
 
 	var mode int
 	var path string
@@ -267,6 +265,7 @@ func getPathAndMode() (string, int) {
 	if strings.TrimSpace(cliDir) != "" {
 		dir = cliDir
 	} else {
+		fmt.Println("Enter the directory (relative to home dir, no quotes):")
 		fmt.Print("~/")
 		dir, err = reader.ReadString('\n')
 	}
