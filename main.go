@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 type ConfigData map[string][]string
@@ -18,6 +20,22 @@ type ConfigData map[string][]string
 // config:
 // - handle multi word keywords
 // - add comment support with template explanation of config format
+// sort by size: small, medium and large
+// regex support in config
+// blacklist / whitelist (like gitignore)
+// cobra support
+// dry run flag to see changes before they actually happen
+// summary of moves / skips
+// interactive mode: ask users what to do with unmatched files
+// something called MIME type. use that instead of ext
+
+var cmd = cobra.Command{
+	Short: "Pass filepath using flag",
+	Use:   "sorta -f ",
+	Run: func(cmd *cobra.Command, args []string) {
+	},
+	Args: cobra.ExactArgs(1),
+}
 
 func main() {
 	path, mode := getPathAndMode()
@@ -29,6 +47,7 @@ func main() {
 		os.Exit(1)
 	}
 }
+
 func createFolder(path, foldername string) error {
 	return os.MkdirAll(filepath.Join(path, foldername), 0700)
 }
@@ -54,6 +73,8 @@ func filterFiles(path string, sortMode int) error {
 	if err != nil {
 		log.Fatalln("Error joining path: ", err)
 	}
+
+	moveCnt := 0
 	var hashes map[string]string = make(map[string]string, len(entries))
 	for _, entry := range entries {
 		filename := entry.Name()
@@ -76,15 +97,18 @@ func filterFiles(path string, sortMode int) error {
 			switch strings.ToLower(filepath.Ext(filename)) {
 			case ".pdf", ".docx", ".pages", ".md", ".txt":
 				err := moveFile(path, "docs", filename)
+				moveCnt++
 				if err != nil {
 					return err
 				}
 			case ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp":
 				err := moveFile(path, "images", filename)
+				moveCnt++
 				if err != nil {
 					return err
 				}
 			case ".mp4", ".mov":
+				moveCnt++
 				err := moveFile(path, "movies", filename)
 				if err != nil {
 					return err
@@ -102,6 +126,7 @@ func filterFiles(path string, sortMode int) error {
 					return err
 				}
 			}
+			moveCnt++
 			err = moveFile(path, foldername, filename)
 			if err != nil {
 				return err
@@ -114,6 +139,7 @@ func filterFiles(path string, sortMode int) error {
 			fmt.Println(digest)
 			if _, exists := hashes[digest]; exists {
 				os.MkdirAll(filepath.Join(path, "duplicates"), 0700)
+				moveCnt++
 				err := os.Rename(fullpath, filepath.Join(path, "duplicates", filename))
 				if err != nil {
 					return err
@@ -122,11 +148,14 @@ func filterFiles(path string, sortMode int) error {
 				hashes[digest] = fullpath
 			}
 		}
-
-		// fmt.Printf("%-5d   | %s\n", i+1, filename)
-
 	}
-	fmt.Println("Files sorted successfuly")
+
+	if moveCnt == 0 {
+		fmt.Println("Already sorted")
+	} else {
+		fmt.Println(moveCnt, "files sorted successfully.")
+	}
+
 	return nil
 }
 
