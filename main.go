@@ -84,12 +84,12 @@ func filterFiles(path string, sortMode int) error {
 	}
 
 	moveCnt, skippedCnt := 0, 0
-	var hashes map[string]string = make(map[string]string, len(entries))
+	hashes := make(map[string]string, len(entries))
+
 	for _, entry := range entries {
 		filename := entry.Name()
-
-		var isHidden bool = []rune(filename)[0] == '.'
-		var isDir = entry.IsDir()
+		isHidden := []rune(filename)[0] == '.'
+		isDir := entry.IsDir()
 		if isDir {
 			filename += " (dir)"
 		}
@@ -97,6 +97,13 @@ func filterFiles(path string, sortMode int) error {
 		if isHidden || isDir {
 			continue
 		}
+
+		fullpath := filepath.Join(path, filename)
+		stat, err := os.Stat(fullpath)
+		if err != nil {
+			return err
+		}
+		size := stat.Size()
 
 		switch sortMode {
 		case 0:
@@ -113,34 +120,37 @@ func filterFiles(path string, sortMode int) error {
 			switch strings.ToLower(filepath.Ext(filename)) {
 			case ".pdf", ".docx", ".pages", ".md", ".txt":
 				if dryRun {
-					fmt.Printf("Would move %s to %s/docs\n", filename, path)
+					fmt.Printf("Would move %s (%d bytes) to %s/docs\n", filename, size, path)
 				} else {
 					err := moveFile(path, "docs", filename)
 					if err != nil {
 						return err
 					}
+					fmt.Printf("Moved %s (%d bytes) to %s/docs\n", filename, size, path)
 				}
 				moveCnt++
 
 			case ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp":
 				if dryRun {
-					fmt.Printf("Would move %s to %s/images\n", filename, path)
+					fmt.Printf("Would move %s (%d bytes) to %s/images\n", filename, size, path)
 				} else {
 					err := moveFile(path, "images", filename)
 					if err != nil {
 						return err
 					}
+					fmt.Printf("Moved %s (%d bytes) to %s/images\n", filename, size, path)
 				}
 				moveCnt++
 
 			case ".mp4", ".mov":
 				if dryRun {
-					fmt.Printf("Would move %s to %s/movies\n", filename, path)
+					fmt.Printf("Would move %s (%d bytes) to %s/movies\n", filename, size, path)
 				} else {
 					err := moveFile(path, "movies", filename)
 					if err != nil {
 						return err
 					}
+					fmt.Printf("Moved %s (%d bytes) to %s/movies\n", filename, size, path)
 				}
 				moveCnt++
 
@@ -156,7 +166,7 @@ func filterFiles(path string, sortMode int) error {
 			foldername := categorize(configData, filename)
 			if foldername != "" {
 				if dryRun {
-					fmt.Printf("Would create folder %s and move %s there\n", foldername, filename)
+					fmt.Printf("Would create folder %s and move %s (%d bytes) there\n", foldername, filename, size)
 				} else {
 					err := createFolder(path, foldername)
 					if err != nil {
@@ -166,6 +176,7 @@ func filterFiles(path string, sortMode int) error {
 					if err != nil {
 						return err
 					}
+					fmt.Printf("Moved %s (%d bytes) to %s\n", filename, size, foldername)
 				}
 				moveCnt++
 			} else {
@@ -173,21 +184,21 @@ func filterFiles(path string, sortMode int) error {
 			}
 
 		case 2:
-			fullpath := filepath.Join(path, filename)
 			data, _ := os.ReadFile(fullpath)
 			checksum256 := sha256.Sum256(data)
 			digest := fmt.Sprintf("%x", checksum256)
-			fmt.Println("Checksum:", digest)
+			fmt.Printf("Checksum: %s (%s, %d bytes)\n", digest, filename, size)
 
 			if _, exists := hashes[digest]; exists {
 				if dryRun {
-					fmt.Printf("Would move duplicate %s to %s/duplicates\n", filename, path)
+					fmt.Printf("Would move duplicate %s (%d bytes) to %s/duplicates\n", filename, size, path)
 				} else {
 					os.MkdirAll(filepath.Join(path, "duplicates"), 0700)
 					err := os.Rename(fullpath, filepath.Join(path, "duplicates", filename))
 					if err != nil {
 						return err
 					}
+					fmt.Printf("Moved duplicate %s (%d bytes) to %s/duplicates\n", filename, size, path)
 				}
 				moveCnt++
 			} else {
@@ -195,24 +206,20 @@ func filterFiles(path string, sortMode int) error {
 			}
 		}
 	}
-	if sortMode == 2 {
-		return nil
-	}
-	if sortMode == 2 {
-		return nil
-	}
 
-	if moveCnt == 0 {
-		if dryRun {
-			fmt.Println("Nothing to do (dry run)")
+	if sortMode != 2 {
+		if moveCnt == 0 {
+			if dryRun {
+				fmt.Println("Nothing to do (dry run)")
+			} else {
+				fmt.Println("Already sorted")
+			}
 		} else {
-			fmt.Println("Already sorted")
-		}
-	} else {
-		if dryRun {
-			fmt.Printf("Dry run: %d files would be sorted, %d skipped.\n", moveCnt, skippedCnt)
-		} else {
-			fmt.Printf("%d files sorted, %d skipped.\n", moveCnt, skippedCnt)
+			if dryRun {
+				fmt.Printf("Dry run: %d files would be sorted, %d skipped.\n", moveCnt, skippedCnt)
+			} else {
+				fmt.Printf("%d files sorted, %d skipped.\n", moveCnt, skippedCnt)
+			}
 		}
 	}
 
