@@ -15,17 +15,15 @@ import (
 type ConfigData map[string][]string
 
 // TODO:
+// count skips in summary, provide overall more detailed summary
+// sort by size: small, medium and large
 // scan directories recursively for duplicates
 // concurrency in system calls
 // config:
 // - handle multi word keywords
-// - add comment support with template explanation of config format
-// sort by size: small, medium and large
 // regex support in config
 // blacklist / whitelist (like gitignore)
-// cobra support
 // dry run flag to see changes before they actually happen
-// summary of moves / skips
 // interactive mode: ask users what to do with unmatched files
 // something called MIME type. use that instead of ext
 
@@ -39,10 +37,6 @@ var cmd = cobra.Command{ //todo
 			cliDir += val + " "
 		}
 	},
-}
-
-func getPath(path string) string {
-	return path
 }
 
 func main() {
@@ -83,7 +77,7 @@ func filterFiles(path string, sortMode int) error {
 		log.Fatalln("Error joining path: ", err)
 	}
 
-	moveCnt := 0
+	moveCnt, skippedCnt := 0, 0
 	var hashes map[string]string = make(map[string]string, len(entries))
 	for _, entry := range entries {
 		filename := entry.Name()
@@ -107,24 +101,23 @@ func filterFiles(path string, sortMode int) error {
 			case ".pdf", ".docx", ".pages", ".md", ".txt":
 				err := moveFile(path, "docs", filename)
 				moveCnt++
-				log.Println("moving1")
 				if err != nil {
 					return err
 				}
 			case ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp":
 				err := moveFile(path, "images", filename)
-				log.Println("moving1")
 				moveCnt++
 				if err != nil {
 					return err
 				}
 			case ".mp4", ".mov":
-				log.Println("moving1")
 				moveCnt++
 				err := moveFile(path, "movies", filename)
 				if err != nil {
 					return err
 				}
+			default:
+				skippedCnt++
 			}
 		case 1:
 			configData, err := parseConfig()
@@ -142,6 +135,8 @@ func filterFiles(path string, sortMode int) error {
 				if err != nil {
 					return err
 				}
+			} else {
+				skippedCnt++
 			}
 
 		case 2:
@@ -162,11 +157,13 @@ func filterFiles(path string, sortMode int) error {
 			}
 		}
 	}
-
+	if sortMode == 2 {
+		return nil
+	}
 	if moveCnt == 0 {
 		fmt.Println("Already sorted")
 	} else {
-		fmt.Println(moveCnt, "files sorted successfully.")
+		fmt.Println(moveCnt, "files sorted,", skippedCnt, "skipped.")
 	}
 
 	return nil
@@ -256,7 +253,6 @@ func parseConfig() (ConfigData, error) {
 }
 
 func getPathAndMode() (string, int) {
-
 	var mode int
 	var path string
 	reader := bufio.NewReader(os.Stdin)
