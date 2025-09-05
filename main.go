@@ -86,12 +86,21 @@ func moveFile(folder, subfolder, filename string) error {
 }
 
 func categorize(configData ConfigData, filename string) string {
+	var hasStar bool
+	var fallback string
 	for foldername, keywords := range configData {
 		for _, keyword := range keywords {
+			if keyword == "*" {
+				hasStar = true
+				fallback = foldername
+			}
 			if strings.Contains(filename, keyword) {
 				return foldername
 			}
 		}
+	}
+	if hasStar {
+		return fallback
 	}
 	return ""
 }
@@ -253,11 +262,12 @@ func createConfig() error {
 // - You can list one or many keywords before the '='.
 // - Lines starting with '//' are comments and ignored.
 // - Make sure no spaces exist between the keys and values
-//
+// - * in the keyword matches all filenames which don't contain the other keywords
 // Example:
 // invoice,bill,txt=Finance
 // track,song=Music
-// notes,book=Study`)
+// notes,book=Study
+// *=others`)
 
 	path := filepath.Join(home, ".sorta-config")
 
