@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,11 @@ type State struct {
 	cliDir              string
 	dryRun              bool
 	moveCnt, skippedCnt int
+}
+
+type FileInfo struct {
+	Name string
+	Size int64
 }
 
 // TODO:
@@ -47,6 +53,7 @@ type State struct {
 // something called MIME type. use that instead of ext
 // Add * to add rest of the files to others * matches all
 // Undo all sort and bring to root
+
 var state = &State{}
 
 var cmd = &cobra.Command{
@@ -66,6 +73,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
 	path, mode := getDirAndMode()
 	fmt.Println("Dir:", path)
 
@@ -73,6 +81,9 @@ func main() {
 	if err != nil {
 		fmt.Println("Error filtering files: ", err)
 		os.Exit(1)
+	}
+	if err := topLargestFiles(path, 5); err != nil {
+		fmt.Println("Error finding largest files:", err)
 	}
 }
 
@@ -262,7 +273,7 @@ func createConfig() error {
 // - You can list one or many keywords before the '='.
 // - Lines starting with '//' are comments and ignored.
 // - Make sure no spaces exist between the keys and values
-// - * in the keyword matches all filenames which don't contain the other keywords
+// - * as a keyword matches all filenames which don't contain the other keywords
 // Example:
 // invoice,bill,txt=Finance
 // track,song=Music
@@ -298,6 +309,55 @@ func readConfigFile() (string, error) {
 		os.Exit(1)
 	}
 	return config, nil
+}
+
+func topLargestFiles(dir string, n int) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	var files []FileInfo
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		fullpath := filepath.Join(dir, entry.Name())
+		stat, err := os.Stat(fullpath)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, FileInfo{entry.Name(), stat.Size()})
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Size > files[j].Size
+	})
+
+	limit := min(len(files), n)
+
+	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
+	for i := 0; i < limit; i++ {
+		fmt.Printf("%d. %s (%s)\n", i+1, files[i].Name, humanReadable(files[i].Size))
+	}
+	return nil
+}
+
+func humanReadable(n int64) string {
+	const unit int64 = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+
+	div, exp := unit, 0
+	for i := n / unit; i >= unit; i /= unit {
+		div *= unit
+		exp++
+	}
+
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
+
 }
 
 func parseConfig() (ConfigData, error) {
