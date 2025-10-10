@@ -1,16 +1,13 @@
 package internal
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"fmt"
-	"log"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -23,7 +20,7 @@ const (
 
 type ConfigData map[string][]string
 
-var Sorter interface {
+type Sorter interface {
 	Sort(dir string, filename string, size int64) (FileOperation, error)
 }
 
@@ -42,12 +39,13 @@ type FileOperation struct {
 	Filename   string
 	Size       int64
 }
+
 type Executor struct {
-	dryRun bool
+	DryRun bool
 }
 
 func (e *Executor) Execute(op FileOperation) error {
-	if e.dryRun {
+	if e.DryRun {
 		return nil
 	}
 
@@ -63,12 +61,12 @@ func (e *Executor) Execute(op FileOperation) error {
 }
 
 type Reporter struct {
-	dryRun bool
+	DryRun bool
 }
 
 func (r *Reporter) Report(op FileOperation, err error) {
 	prefix := ansiGreen + "[OK]" + ansiReset
-	if r.dryRun {
+	if r.DryRun {
 		prefix = ansiYellow + "[DRY]" + ansiReset
 	}
 
@@ -188,12 +186,6 @@ type SortResult struct {
 	Errors  []error
 }
 
-var extensionCategories = map[string][]string{
-	"docs":   {".pdf", ".docx", ".pages", ".md", ".txt"},
-	"images": {".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp"},
-	"movies": {".mp4", ".mov"},
-}
-
 func readConfigFile() (string, error) {
 	home, _ := os.UserHomeDir()
 	configName := ".sorta-config"
@@ -278,40 +270,10 @@ func createConfig() error {
 	return nil
 }
 
-func GetDirAndMode() (string, int) {
-	reader := bufio.NewReader(os.Stdin)
-	var dir string
-	var mode int
-	var err error
-
-	if strings.TrimSpace(state.cliDir) != "" {
-		dir = state.cliDir
-	} else {
-		fmt.Println(ansiCyan + "Enter the directory (relative to home dir, no quotes):" + ansiReset)
-		fmt.Print(ansiCyan + "~/" + ansiReset)
-		dir, _ = reader.ReadString('\n')
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalln(ansiRed+"Error reading home directory:"+ansiReset, err)
-	}
-	dir = strings.TrimSpace(dir)
-	dir = filepath.Join(home, dir)
-
-	fmt.Println("\n" + ansiCyan + "Choose mode index:" + ansiReset)
-	fmt.Println(ansiYellow+"0:"+ansiReset, "Sort based on file extension")
-	fmt.Println(ansiYellow+"1:"+ansiReset, "Sort based on keywords in config")
-	fmt.Println(ansiYellow+"2:"+ansiReset, "Filter duplicates")
-
-	fmt.Fscanln(reader, &mode)
-	return dir, mode
-}
-
 type State struct {
-	cliDir              string
-	dryRun              bool
-	moveCnt, skippedCnt int
+	CliDir              string
+	DryRun              bool
+	MoveCnt, skippedCnt int
 }
 
 type FileInfo struct {
@@ -319,31 +281,7 @@ type FileInfo struct {
 	Size int64
 }
 
-var state = &State{}
-
-var cmd = &cobra.Command{
-	Short: "CLI to sort files based on extension and keywords",
-	Use:   "sorta []",
-	Run: func(cmd *cobra.Command, args []string) {
-		for _, val := range args {
-			state.cliDir += val + " "
-		}
-	},
-}
-
 func sortByExtension() {
-
-}
-
-func deduplicate() {
-
-}
-
-func sortByConfig() {
-
-}
-
-func reportResults() {
 
 }
 
@@ -355,11 +293,6 @@ func handleMove(dir, foldername, filename string, size int64) error {
 	srcPath := filepath.Join(dir, filename)
 	destDir := filepath.Join(dir, foldername)
 	destPath := filepath.Join(destDir, filename)
-
-	if state.dryRun {
-		fmt.Printf("%s %s → %s\n", ansiYellow+"[DRY]"+ansiReset, filename, destPath)
-		return nil
-	}
 
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create folder %s: %w", destDir, err)
@@ -373,10 +306,9 @@ func handleMove(dir, foldername, filename string, size int64) error {
 	return nil
 }
 
-func FilterFiles(dir string, sortMode int) error {
-	hashes := make(map[string]string)
-
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
+	// hashes := make(map[string]string)
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -395,90 +327,13 @@ func FilterFiles(dir string, sortMode int) error {
 		}
 		size := stat.Size()
 
-		switch sortMode {
-		case 0: // extension-based
-			switch strings.ToLower(filepath.Ext(filename)) {
-			case ".pdf", ".docx", ".pages", ".md", ".txt":
-				if err := handleMove(dir, "docs", filename, size); err != nil {
-					return err
-				}
-				state.moveCnt++
-
-			case ".png", ".jpg", ".jpeg", ".heic", ".heif", ".webp":
-				if err := handleMove(dir, "images", filename, size); err != nil {
-					return err
-				}
-				state.moveCnt++
-
-			case ".mp4", ".mov":
-				if err := handleMove(dir, "movies", filename, size); err != nil {
-					return err
-				}
-				state.moveCnt++
-
-			default:
-				state.skippedCnt++
-			}
-
-		case 1: // config-based
-			configData, err := ParseConfig()
-			if err != nil {
-				return err
-			}
-			foldername := categorize(configData, filename)
-			if foldername != "" {
-				if err := handleMove(dir, foldername, filename, size); err != nil {
-					return err
-				}
-				state.moveCnt++
-			} else {
-				state.skippedCnt++
-			}
-
-		case 2: // duplicate detection
-			data, _ := os.ReadFile(path)
-			checksum256 := sha256.Sum256(data)
-			digest := fmt.Sprintf("%x", checksum256)
-			fmt.Printf("Checksum: %s (%s, %d bytes)\n", digest, filename, size)
-
-			if _, exists := hashes[digest]; exists {
-				if state.dryRun {
-					fmt.Printf("Would move duplicate %s (%d bytes) to %s/duplicates\n", filename, size, dir)
-				} else {
-					os.MkdirAll(filepath.Join(dir, "duplicates"), 0700)
-					if err := os.Rename(path, filepath.Join(dir, "duplicates", filename)); err != nil {
-						return err
-					}
-					fmt.Printf("Moved duplicate %s (%d bytes) to %s/duplicates\n", filename, size, dir)
-				}
-				state.moveCnt++
-			} else {
-				hashes[digest] = path
-			}
-		}
-
+		fileOp, err := sorter.Sort(dir, filename, size)
+		err = executor.Execute(fileOp)
 		return nil
 	})
-	if err != nil {
-		return err
-	}
 
-	if sortMode != 2 {
-		if state.moveCnt == 0 {
-			if state.dryRun {
-				fmt.Println("Nothing to do (dry run)")
-			} else {
-				fmt.Println("Already sorted")
-			}
-		} else {
-			if state.dryRun {
-				fmt.Printf("Dry run: %d files would be sorted, %d skipped.\n", state.moveCnt, state.skippedCnt)
-			} else {
-				fmt.Printf("%d files sorted, %d skipped.\n", state.moveCnt, state.skippedCnt)
-			}
-		}
-	}
-	return nil
+	return SortResult{}, nil
+
 }
 func TopLargestFiles(dir string, n int) error {
 	entries, err := os.ReadDir(dir)
@@ -552,13 +407,4 @@ func categorize(configData ConfigData, filename string) string {
 		return fallback
 	}
 	return ""
-}
-
-func init() {
-	cmd.Flags().BoolVar(&state.dryRun, "dry", false, "Do a dry run")
-
-	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 }
