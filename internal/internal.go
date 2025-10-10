@@ -186,6 +186,12 @@ type SortResult struct {
 	Errors  []error
 }
 
+func (r *SortResult) Print() {
+	fmt.Println("Moved:", r.Moved)
+	fmt.Println("Skipped:", r.Skipped)
+	fmt.Println("Errors: i don't know how to count them yet so 0 errors for now")
+}
+
 func readConfigFile() (string, error) {
 	home, _ := os.UserHomeDir()
 	configName := ".sorta-config"
@@ -281,10 +287,6 @@ type FileInfo struct {
 	Size int64
 }
 
-func sortByExtension() {
-
-}
-
 func createFolder(dir, foldername string) error {
 	return os.MkdirAll(filepath.Join(dir, foldername), 0700)
 }
@@ -308,6 +310,8 @@ func handleMove(dir, foldername, filename string, size int64) error {
 
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
 	// hashes := make(map[string]string)
+	result := SortResult{}
+
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -329,10 +333,16 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		fileOp, err := sorter.Sort(dir, filename, size)
 		err = executor.Execute(fileOp)
+
+		if fileOp.Type == OpMove {
+			result.Moved++
+		} else {
+			result.Skipped++
+		}
 		return nil
 	})
 
-	return SortResult{}, nil
+	return result, nil
 
 }
 func TopLargestFiles(dir string, n int) error {
@@ -403,6 +413,7 @@ func categorize(configData ConfigData, filename string) string {
 			}
 		}
 	}
+
 	if hasStar {
 		return fallback
 	}

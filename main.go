@@ -21,6 +21,7 @@ const (
 )
 
 // TODO:
+// fix recursive by appending subfolder path to dest or sth, idk
 // move to trash folder instead of deleting
 // a very interactive mode like
 // [?] Move file "weirdfile.xyz" (12 MB)?
@@ -107,14 +108,16 @@ func main() {
 	reporter := &internal.Reporter{
 		DryRun: state.DryRun,
 	}
-	_, err := internal.FilterFiles(path, sorter, executor, reporter)
+	res, err := internal.FilterFiles(path, sorter, executor, reporter)
 	if err != nil {
 		fmt.Println("Error filtering files: ", err)
 		os.Exit(1)
 	}
 	if err := internal.TopLargestFiles(path, 5); err != nil {
 		fmt.Println("Error finding largest files:", err)
+		os.Exit(1)
 	}
+	res.Print()
 }
 
 func init() {
