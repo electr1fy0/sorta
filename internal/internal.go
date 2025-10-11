@@ -4,45 +4,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
-
-const (
-	ansiReset  = "\033[0m"
-	ansiRed    = "\033[31m"
-	ansiGreen  = "\033[32m"
-	ansiYellow = "\033[33m"
-	ansiCyan   = "\033[36m"
-)
-
-type ConfigData map[string][]string
-
-type Sorter interface {
-	Sort(baseDir, dir string, filename string, size int64) (FileOperation, error)
-}
-
-type OperationType int
-
-const (
-	OpMove OperationType = iota
-	OpDelete
-	OpSkip
-)
-
-type FileOperation struct {
-	Type       OperationType
-	SourcePath string
-	DestPath   string
-	Filename   string
-	Size       int64
-}
-
-type Executor struct {
-	DryRun bool
-}
 
 func (e *Executor) Execute(op FileOperation) error {
 	if e.DryRun {
@@ -52,18 +19,39 @@ func (e *Executor) Execute(op FileOperation) error {
 	switch op.Type {
 	case OpMove:
 		destDir := filepath.Dir(op.DestPath)
-		// fmt.Println("creating folder:", op.DestPath)
+
+		// srcData, err := os.ReadFile(op.SourcePath)
+		// _, err = os.Stat(op.DestPath)
+		// if os.IsNotExist(err) { // file exists, yes = not not
+		// 	destData, _ := os.ReadFile(op.DestPath)
+		// 	checksum := sha256.Sum256(destData)
+		// 	checkStringDest := fmt.Sprintf("%x", checksum)
+
+		// 	checksumSrc := sha256.Sum256(srcData)
+		// 	checkstringSrc := fmt.Sprintf("%x", checksumSrc)
+		// 	fmt.Printf("src: %s dest: %s\n", checkstringSrc, checkStringDest)
+		// 	if checkStringDest == checkstringSrc {
+		// 		return nil
+		// 	}
+		// }
+		if op.DestPath == op.SourcePath {
+			return nil
+		}
+		// fmt.Printf("Moving file %s → %s\n", op.Filename, destDir)
 		os.MkdirAll(destDir, 0755)
-		return os.Rename(op.SourcePath, destDir)
+		err := os.Rename(op.SourcePath, op.DestPath)
+
+		result.Moved++
+		fmt.Println("moved: ", op.Filename)
+		if err != nil {
+			log.Fatalln("error executing: ", err)
+		}
+
 	case OpDelete:
 		os.Remove(op.SourcePath)
 	}
 
 	return nil
-}
-
-type Reporter struct {
-	DryRun bool
 }
 
 func (r *Reporter) Report(op FileOperation, err error) {
@@ -79,10 +67,6 @@ func (r *Reporter) Report(op FileOperation, err error) {
 	if op.Type == OpMove {
 		fmt.Printf("%s %s -> %s (%s)\n", prefix, op.Filename, op.DestPath, humanReadable(op.Size))
 	}
-}
-
-type ExtensionSorter struct {
-	categories map[string][]string
 }
 
 func NewExtensionSorter() *ExtensionSorter {
@@ -116,10 +100,6 @@ func (s *ExtensionSorter) Sort(baseDir, dir, filename string, size int64) (FileO
 	return FileOperation{Type: OpSkip}, nil
 }
 
-type ConfigSorter struct {
-	configData ConfigData
-}
-
 func NewConfigSorter() (*ConfigSorter, error) {
 	confData, err := ParseConfig()
 	if err != nil {
@@ -136,7 +116,7 @@ func (s *ConfigSorter) Sort(baseDir, dir, filename string, size int64) (FileOper
 	if folder == "" {
 		return FileOperation{Type: OpSkip}, nil
 	}
-
+	// fmt.Println("moving ", dir, filename, folder)
 	return FileOperation{
 		Type:       OpMove,
 		SourcePath: filepath.Join(dir, filename),
@@ -144,10 +124,6 @@ func (s *ConfigSorter) Sort(baseDir, dir, filename string, size int64) (FileOper
 		Filename:   filename,
 		Size:       size,
 	}, nil
-}
-
-type DuplicateFinder struct {
-	hashes map[string]string
 }
 
 func NewDuplicateFinder() *DuplicateFinder {
@@ -178,12 +154,6 @@ func (d *DuplicateFinder) Sort(baseDir, dir, filename string, size int64) (FileO
 		Filename:   filename,
 		Size:       size,
 	}, nil
-}
-
-type SortResult struct {
-	Moved   int
-	Skipped int
-	Errors  []error
 }
 
 func (r *SortResult) Print() {
@@ -287,30 +257,11 @@ type FileInfo struct {
 	Size int64
 }
 
-func createFolder(dir, foldername string) error {
-	return os.MkdirAll(filepath.Join(dir, foldername), 0700)
-}
-
-func handleMove(dir, foldername, filename string, size int64) error {
-	srcPath := filepath.Join(dir, filename)
-	destDir := filepath.Join(dir, foldername)
-	destPath := filepath.Join(destDir, filename)
-
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return fmt.Errorf("failed to create folder %s: %w", destDir, err)
-	}
-
-	if err := os.Rename(srcPath, destPath); err != nil {
-		return fmt.Errorf("failed to move %s → %s: %w", srcPath, destPath, err)
-	}
-
-	fmt.Printf("%s %s → %s (%s)\n", ansiGreen+"[OK]"+ansiReset, filename, destPath, humanReadable(size))
-	return nil
-}
+var entries []FileInfo
 
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
 	// hashes := make(map[string]string)
-	result := SortResult{}
+	entries = make([]FileInfo, 0, 1000)
 
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -319,13 +270,13 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if d.IsDir() {
 			return nil // skip directories
 		}
-
 		filename := d.Name()
 		if strings.HasPrefix(filename, ".") {
 			return nil // skip hidden files
 		}
 		// fmt.Println("filtering:", path)
 		stat, err := d.Info()
+		entries = append(entries, FileInfo{d.Name(), stat.Size()})
 
 		if err != nil {
 			return err
@@ -334,10 +285,12 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		parentDir := filepath.Dir(path)
 		fileOp, err := sorter.Sort(dir, parentDir, filename, size)
 		err = executor.Execute(fileOp)
+		if err != nil {
+			fmt.Println("Error executing: ", err)
+			return err
+		}
 
-		if fileOp.Type == OpMove {
-			result.Moved++
-		} else {
+		if fileOp.Type == OpSkip {
 			result.Skipped++
 		}
 		return nil
@@ -345,37 +298,20 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 	return result, nil
 }
+
 func TopLargestFiles(dir string, n int) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	var files []FileInfo
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
 
-		fullpath := filepath.Join(dir, entry.Name())
-		stat, err := os.Stat(fullpath)
-		if err != nil {
-			return err
-		}
-
-		files = append(files, FileInfo{entry.Name(), stat.Size()})
-	}
-
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].Size > files[j].Size
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Size > entries[j].Size
 	})
 
-	limit := min(len(files), n)
-	if strings.HasPrefix(files[0].Name, ".") {
+	limit := min(len(entries), n)
+	if strings.HasPrefix(entries[0].Name, ".") {
 		return nil
 	}
 	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
-	for i := 0; i < limit; i++ {
-		fmt.Printf("%d. %s (%s)\n", i+1, files[i].Name, humanReadable(files[i].Size))
+	for i := range limit {
+		fmt.Printf("%d. %s (%s)\n", i+1, entries[i].Name, humanReadable(entries[i].Size))
 	}
 	return nil
 }
@@ -394,11 +330,6 @@ func humanReadable(n int64) string {
 
 	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
 
-}
-
-func moveFile(folder, subfolder, filename string) error {
-	err := os.Rename(filepath.Join(folder, filename), filepath.Join(folder, subfolder, filename))
-	return err
 }
 
 func categorize(configData ConfigData, filename string) string {
