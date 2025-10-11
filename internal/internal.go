@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -84,16 +85,14 @@ func (s *ExtensionSorter) Sort(baseDir, dir, filename string, size int64) (FileO
 	ext := strings.ToLower(filepath.Ext(filename))
 
 	for folder, extensions := range s.categories {
-		for _, validExt := range extensions {
-			if ext == validExt {
-				return FileOperation{
-					Type:       OpMove,
-					SourcePath: filepath.Join(dir, filename),
-					DestPath:   filepath.Join(baseDir, folder, filename),
-					Filename:   filename,
-					Size:       size,
-				}, nil
-			}
+		if slices.Contains(extensions, ext) {
+			return FileOperation{
+				Type:       OpMove,
+				SourcePath: filepath.Join(dir, filename),
+				DestPath:   filepath.Join(baseDir, folder, filename),
+				Filename:   filename,
+				Size:       size,
+			}, nil
 		}
 	}
 
