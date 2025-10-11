@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
@@ -19,166 +17,122 @@ const (
 	ansiCyan   = "\033[36m"
 )
 
-var state = &internal.State{}
-var sorter internal.Sorter
+var (
+	dryRun bool
+	sorter internal.Sorter
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "sorta",
 	Short: "CLI to sort files based on extension and keywords",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			fmt.Println(ansiYellow + "Warning: No directory provided. Use a subcommand like 'ext', 'config', or 'dupl'." + ansiReset)
-			return
-		}
-		for _, val := range args {
-			if val != "" {
-				state.CliDir += val + " "
-			}
-		}
-	},
+	Long:  "A file organization tool that can sort by extension, config rules, or find duplicates.",
 }
 
 var extCmd = &cobra.Command{
-	Use:   "ext <dir>",
+	Use:   "ext <directory>",
 	Short: "Sort files based on common file extensions",
-	Run: func(cmd *cobra.Command, args []string) {
-		dir := GetDir(args)
-		if dir == "" {
-			fmt.Println(ansiRed + "Error: No directory specified for 'ext'." + ansiReset)
-			os.Exit(1)
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, err := validateDir(args[0])
+		if err != nil {
+			return err
 		}
-		state.CliDir = dir
+
 		sorter = internal.NewExtensionSorter()
+		return runSort(dir)
 	},
 }
 
 var configCmd = &cobra.Command{
-	Use:   "config <dir>",
+	Use:   "config <directory>",
 	Short: "Sort files based on .sorta-config",
-	Run: func(cmd *cobra.Command, args []string) {
-		dir := GetDir(args)
-		if dir == "" {
-			fmt.Println(ansiRed + "Error: No directory specified for 'config'." + ansiReset)
-			os.Exit(1)
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, err := validateDir(args[0])
+		if err != nil {
+			return err
 		}
-		state.CliDir = dir
+
 		s, err := internal.NewConfigSorter()
 		if err != nil {
-			log.Fatalln(ansiRed+"Error creating config sorter:"+ansiReset, err)
+			return fmt.Errorf("failed to create config sorter: %w", err)
 		}
 		sorter = s
+
+		return runSort(dir)
 	},
 }
 
 var duplCmd = &cobra.Command{
-	Use:   "dupl <dir>",
+	Use:   "dupl <directory>",
 	Short: "Filter out duplicate files",
-	Run: func(cmd *cobra.Command, args []string) {
-		dir := GetDir(args)
-		if dir == "" {
-			fmt.Println(ansiRed + "Error: No directory specified for 'dupl'." + ansiReset)
-			os.Exit(1)
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, err := validateDir(args[0])
+		if err != nil {
+			return err
 		}
-		state.CliDir = dir
+
 		sorter = internal.NewDuplicateFinder()
+		return runSort(dir)
 	},
 }
 
-func GetDir(args []string) string {
-	if len(args) == 0 {
-		return ""
-	}
-
-	var dirBuilder strings.Builder
-	for _, val := range args {
-		val = strings.TrimSpace(val)
-		if val == "" {
-			continue
+func validateDir(path string) (string, error) {
+	// Handle absolute paths
+	if filepath.IsAbs(path) {
+		path = filepath.Clean(path)
+	} else {
+		// Resolve relative to home directory
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		dirBuilder.WriteString(val)
-	}
-
-	dir := dirBuilder.String()
-	if dir == "" {
-		return ""
-	}
-
-	if filepath.IsAbs(dir) {
-		return filepath.Clean(dir)
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalln(ansiRed+"Error reading home directory:"+ansiReset, err)
-	}
-
-	full := filepath.Join(home, dir)
-	info, err := os.Stat(full)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println(ansiRed+"Error:"+ansiReset, "Directory does not exist:", full)
-		} else {
-			fmt.Println(ansiRed+"Error:"+ansiReset, err)
-		}
-		os.Exit(1)
-	}
-
-	if !info.IsDir() {
-		fmt.Println(ansiRed+"Error:"+ansiReset, full, "is not a directory.")
-		os.Exit(1)
-	}
-
-	return full
-}
-
-func init() {
-	rootCmd.Flags().BoolVar(&state.DryRun, "dry", false, "Do a dry run")
-	rootCmd.AddCommand(extCmd)
-	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(duplCmd)
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(ansiRed+"Command error:"+ansiReset, err)
-		os.Exit(1)
-	}
-
-	path := strings.TrimSpace(state.CliDir)
-	if path == "" {
-		fmt.Println(ansiRed + "Error: directory not provided." + ansiReset)
-		os.Exit(1)
+		path = filepath.Join(home, path)
 	}
 
 	info, err := os.Stat(path)
 	if err != nil {
-		fmt.Println(ansiRed+"Error accessing directory:"+ansiReset, err)
-		os.Exit(1)
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("directory does not exist: %s", path)
+		}
+		return "", fmt.Errorf("cannot access path: %w", err)
 	}
+
 	if !info.IsDir() {
-		fmt.Println(ansiRed+"Error:"+ansiReset, path, "is not a directory.")
-		os.Exit(1)
+		return "", fmt.Errorf("not a directory: %s", path)
 	}
 
-	if sorter == nil {
-		fmt.Println(ansiRed + "Error: No sorting mode initialized. Use a subcommand like 'ext', 'config', or 'dupl'." + ansiReset)
-		os.Exit(1)
-	}
+	return path, nil
+}
 
-	fmt.Println(ansiCyan+"Dir:"+ansiReset, path)
+func runSort(dir string) error {
+	fmt.Printf("%sDir:%s %s\n", ansiCyan, ansiReset, dir)
 
-	executor := &internal.Executor{DryRun: state.DryRun}
-	reporter := &internal.Reporter{DryRun: state.DryRun}
+	executor := &internal.Executor{DryRun: dryRun}
+	reporter := &internal.Reporter{DryRun: dryRun}
 
-	res, err := internal.FilterFiles(path, sorter, executor, reporter)
+	res, err := internal.FilterFiles(dir, sorter, executor, reporter)
 	if err != nil {
-		fmt.Println(ansiRed+"Error filtering files:"+ansiReset, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to filter files: %w", err)
 	}
 
-	if err := internal.TopLargestFiles(path, 5); err != nil {
-		fmt.Println(ansiYellow+"Warning finding largest files:"+ansiReset, err)
+	if err := internal.TopLargestFiles(dir, 5); err != nil {
+		fmt.Printf("%sWarning:%s could not find largest files: %v\n", ansiYellow, ansiReset, err)
 	}
 
 	res.Print()
+	return nil
+}
+
+func init() {
+	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry", false, "Do a dry run without making changes")
+	rootCmd.AddCommand(extCmd, configCmd, duplCmd)
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%sError:%s %v\n", ansiRed, ansiReset, err)
+		os.Exit(1)
+	}
 }
