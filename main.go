@@ -103,7 +103,6 @@ func GetDir(args []string) string {
 		return ""
 	}
 
-	// if absolute, don’t prepend home
 	if filepath.IsAbs(dir) {
 		return filepath.Clean(dir)
 	}
@@ -151,7 +150,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Verify dir again at runtime
 	info, err := os.Stat(path)
 	if err != nil {
 		fmt.Println(ansiRed+"Error accessing directory:"+ansiReset, err)
