@@ -21,7 +21,7 @@ const (
 type ConfigData map[string][]string
 
 type Sorter interface {
-	Sort(dir string, filename string, size int64) (FileOperation, error)
+	Sort(baseDir, dir string, filename string, size int64) (FileOperation, error)
 }
 
 type OperationType int
@@ -51,8 +51,10 @@ func (e *Executor) Execute(op FileOperation) error {
 
 	switch op.Type {
 	case OpMove:
-		os.MkdirAll(filepath.Dir(op.DestPath), 0755)
-		return os.Rename(op.SourcePath, op.DestPath)
+		destDir := filepath.Dir(op.DestPath)
+		// fmt.Println("creating folder:", op.DestPath)
+		os.MkdirAll(destDir, 0755)
+		return os.Rename(op.SourcePath, destDir)
 	case OpDelete:
 		os.Remove(op.SourcePath)
 	}
@@ -74,11 +76,8 @@ func (r *Reporter) Report(op FileOperation, err error) {
 		prefix = ansiRed + "[ERR]" + ansiReset
 	}
 
-	switch op.Type {
-	case OpMove:
+	if op.Type == OpMove {
 		fmt.Printf("%s %s -> %s (%s)\n", prefix, op.Filename, op.DestPath, humanReadable(op.Size))
-	case OpSkip:
-		break
 	}
 }
 
@@ -92,11 +91,12 @@ func NewExtensionSorter() *ExtensionSorter {
 			"docs":   {".pdf", ".docx", ".pages", ".md", ".txts"},
 			"images": {".png", ".jpg", ".jpeg", ".heic", ".heif"},
 			"movies": {".mp4", ".mov"},
+			"slides": {".pptx"},
 		},
 	}
 }
 
-func (s *ExtensionSorter) Sort(dir, filename string, size int64) (FileOperation, error) {
+func (s *ExtensionSorter) Sort(baseDir, dir, filename string, size int64) (FileOperation, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 
 	for folder, extensions := range s.categories {
@@ -105,7 +105,7 @@ func (s *ExtensionSorter) Sort(dir, filename string, size int64) (FileOperation,
 				return FileOperation{
 					Type:       OpMove,
 					SourcePath: filepath.Join(dir, filename),
-					DestPath:   filepath.Join(dir, folder, filename),
+					DestPath:   filepath.Join(baseDir, folder, filename),
 					Filename:   filename,
 					Size:       size,
 				}, nil
@@ -130,7 +130,7 @@ func NewConfigSorter() (*ConfigSorter, error) {
 	}, nil
 }
 
-func (s *ConfigSorter) Sort(dir, filename string, size int64) (FileOperation, error) {
+func (s *ConfigSorter) Sort(baseDir, dir, filename string, size int64) (FileOperation, error) {
 	folder := categorize(s.configData, filename)
 
 	if folder == "" {
@@ -140,7 +140,7 @@ func (s *ConfigSorter) Sort(dir, filename string, size int64) (FileOperation, er
 	return FileOperation{
 		Type:       OpMove,
 		SourcePath: filepath.Join(dir, filename),
-		DestPath:   filepath.Join(dir, folder, filename),
+		DestPath:   filepath.Join(baseDir, folder, filename),
 		Filename:   filename,
 		Size:       size,
 	}, nil
@@ -156,7 +156,7 @@ func NewDuplicateFinder() *DuplicateFinder {
 	}
 }
 
-func (d *DuplicateFinder) Sort(dir, filename string, size int64) (FileOperation, error) {
+func (d *DuplicateFinder) Sort(baseDir, dir, filename string, size int64) (FileOperation, error) {
 	fullPath := filepath.Join(dir, filename)
 
 	data, err := os.ReadFile(fullPath)
@@ -324,14 +324,15 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if strings.HasPrefix(filename, ".") {
 			return nil // skip hidden files
 		}
-
+		// fmt.Println("filtering:", path)
 		stat, err := d.Info()
+
 		if err != nil {
 			return err
 		}
 		size := stat.Size()
-
-		fileOp, err := sorter.Sort(dir, filename, size)
+		parentDir := filepath.Dir(path)
+		fileOp, err := sorter.Sort(dir, parentDir, filename, size)
 		err = executor.Execute(fileOp)
 
 		if fileOp.Type == OpMove {
@@ -343,7 +344,6 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 	})
 
 	return result, nil
-
 }
 func TopLargestFiles(dir string, n int) error {
 	entries, err := os.ReadDir(dir)
@@ -370,7 +370,9 @@ func TopLargestFiles(dir string, n int) error {
 	})
 
 	limit := min(len(files), n)
-
+	if strings.HasPrefix(files[0].Name, ".") {
+		return nil
+	}
 	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
 	for i := 0; i < limit; i++ {
 		fmt.Printf("%d. %s (%s)\n", i+1, files[i].Name, humanReadable(files[i].Size))
