@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -153,61 +154,59 @@ func (r *SortResult) Print() {
 	fmt.Println("Errors: no idea, mate")
 }
 
-func readConfigFile() (string, error) {
-	home, _ := os.UserHomeDir()
-	configName := ".sorta-config"
-	configBytes, err := os.ReadFile(filepath.Join(home, configName))
-	if err != nil {
-		err = createConfig()
-		if err != nil {
-			return "", err
-		}
-		return "", fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
-	}
-
-	config := string(configBytes)
-	if strings.TrimSpace(config) == "" {
-		return "", fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
-	}
-	return config, nil
-}
-
 func ParseConfig() (ConfigData, error) {
-	var configData ConfigData
-	config, err := readConfigFile()
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return configData, err
+		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	lineCount := strings.Count(config, "\n")
-	if []rune(config)[len(config)-1] != rune('\n') {
-		lineCount++
+	configPath := filepath.Join(home, ".sorta-config")
+	file, err := os.Open(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err := createConfig(configPath); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("config file created at %s. please add keywords to it", configPath)
+		}
+		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
+	defer file.Close()
 
-	configData = make(map[string][]string)
-
-	for line := range strings.Lines(config) {
-		if strings.HasPrefix(line, "//") {
+	configData := make(ConfigData)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "//") || strings.TrimSpace(line) == "" {
 			continue
 		}
-		input := strings.Split(line, ",")
-		last := strings.TrimSpace(input[len(input)-1])
 
-		lastSplit := strings.Split(last, "=")
+		parts := strings.Split(line, "=")
+		if len(parts) != 2 {
+			continue // Invalid line format
+		}
 
-		input[len(input)-1] = lastSplit[0]
-		output := lastSplit[1]
-		configData[output] = input
+		folder := strings.TrimSpace(parts[1])
+		keywords := strings.Split(parts[0], ",")
+		for i, k := range keywords {
+			keywords[i] = strings.TrimSpace(k)
+		}
+
+		configData[folder] = keywords
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if len(configData) == 0 {
+		return nil, fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
 	}
 
 	return configData, nil
 }
 
-func createConfig() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
+func createConfig(path string) error {
 	content := []byte(`// Config file for 'sorta'
 //
 // Each line defines how files should be sorted.
@@ -225,11 +224,8 @@ func createConfig() error {
 // notes,book=Study
 // *=others`)
 
-	path := filepath.Join(home, ".sorta-config")
-
-	err = os.WriteFile(path, content, 0600)
-	if err != nil {
-		return err
+	if err := os.WriteFile(path, content, 0600); err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
 	}
 	return nil
 }
