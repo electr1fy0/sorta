@@ -79,11 +79,9 @@ var duplCmd = &cobra.Command{
 }
 
 func validateDir(path string) (string, error) {
-	// Handle absolute paths
 	if filepath.IsAbs(path) {
 		path = filepath.Clean(path)
 	} else {
-		// Resolve relative to home directory
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("cannot determine home directory: %w", err)

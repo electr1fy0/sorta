@@ -3,6 +3,7 @@ package internal
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -38,7 +39,6 @@ func (e *Executor) Execute(op FileOperation) error {
 		if op.DestPath == op.SourcePath {
 			return nil
 		}
-		// fmt.Printf("Moving file %s → %s\n", op.Filename, destDir)
 		os.MkdirAll(destDir, 0755)
 		err := os.Rename(op.SourcePath, op.DestPath)
 
@@ -133,7 +133,11 @@ func NewDuplicateFinder() *DuplicateFinder {
 
 func (d *DuplicateFinder) Sort(baseDir, dir, filename string, size int64) (FileOperation, error) {
 	fullPath := filepath.Join(dir, filename)
-
+	if fullPath == filepath.Join(baseDir, "duplicates", filename) {
+		return FileOperation{
+			Type: OpSkip,
+		}, nil
+	}
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		return FileOperation{Type: OpSkip}, err
@@ -149,7 +153,7 @@ func (d *DuplicateFinder) Sort(baseDir, dir, filename string, size int64) (FileO
 	return FileOperation{
 		Type:       OpMove,
 		SourcePath: fullPath,
-		DestPath:   filepath.Join(dir, "duplicates", filename),
+		DestPath:   filepath.Join(baseDir, "duplicates", filename),
 		Filename:   filename,
 		Size:       size,
 	}, nil
@@ -266,14 +270,24 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if err != nil {
 			return err
 		}
+
 		if d.IsDir() {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			if _, err := f.Readdir(1); err == io.EOF {
+				if err := os.Remove(path); err != nil {
+					return err
+				}
+			}
 			return nil // skip directories
 		}
+
 		filename := d.Name()
 		if strings.HasPrefix(filename, ".") {
 			return nil // skip hidden files
 		}
-		// fmt.Println("filtering:", path)
 		stat, err := d.Info()
 		entries = append(entries, FileInfo{d.Name(), stat.Size()})
 
@@ -292,6 +306,7 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if fileOp.Type == OpSkip {
 			result.Skipped++
 		}
+
 		return nil
 	})
 
