@@ -1,14 +1,16 @@
 package internal
 
 const (
-	ansiReset  = "\033[0m"
-	ansiRed    = "\033[31m"
-	ansiGreen  = "\033[32m"
-	ansiYellow = "\033[33m"
-	ansiCyan   = "\033[36m"
+	ansiReset  = "[0m"
+	ansiRed    = "[31m"
+	ansiGreen  = "[32m"
+	ansiYellow = "[33m"
 )
 
-type ConfigData map[string][]string
+type ConfigData struct {
+	foldernames []string
+	keywords    [][]string
+}
 
 type Sorter interface {
 	Sort(baseDir, dir string, filename string, size int64) (FileOperation, error)
@@ -21,8 +23,6 @@ const (
 	OpDelete
 	OpSkip
 )
-
-var result = SortResult{}
 
 type FileOperation struct {
 	Type       OperationType
@@ -41,7 +41,7 @@ type ExtensionSorter struct {
 }
 
 type ConfigSorter struct {
-	configData ConfigData
+	configData *ConfigData
 }
 
 type DuplicateFinder struct {
@@ -56,4 +56,9 @@ type SortResult struct {
 
 type Reporter struct {
 	DryRun bool
+}
+
+type FileInfo struct {
+	Name string
+	Size int64
 }
