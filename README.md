@@ -2,10 +2,12 @@
 A simple file organizer that sorts files in a directory based on file extensions, custom keywords, or finds duplicates.
 
 ## What it does
-Sorta cleans up messy directories by automatically moving files into organized folders. It has three modes:
+Sorta cleans up messy directories by automatically moving files into organized folders. It has four commands:
+
 1. **Extension-based sorting** - Groups files by type (PDFs → docs, images → images, videos → movies)
 2. **Keyword-based sorting** - Groups files based on filename keywords you define
 3. **Duplicate detection** - Finds and moves duplicate files using SHA256 checksums
+4. **Largest files** - Lists the top 5 largest files in a directory
 
 ## Installation
 ```bash
@@ -15,40 +17,34 @@ go build -o sorta
 ```
 
 ## Usage
-### Basic usage
+
+### Extension-based sorting
 ```bash
-./sorta                      # Interactive mode (prompts for directory)
-./sorta [directory]
+./sorta ext <directory>
+./sorta ext ~/Downloads
+./sorta ext Desktop/messy-folder --dry
 ```
 
-### Dry run flag
-```bash
-./sorta --dry [directory]    # See what would happen without actually moving files
-./sorta Desktop/messy-folder --dry
-```
-
-You'll be prompted for:
-1. **Directory path** (relative to your home directory, e.g., `Downloads` or `Desktop/project`)
-2. **Sorting mode**:
-   - `0` = Extension-based sorting
-   - `1` = Keyword-based sorting
-   - `2` = Find and move duplicates
-
-## Sorting modes
-
-### Extension-based sorting (Mode 0)
 Automatically creates these folders and moves files:
-- `docs/` - .pdf, .docx, .pages, .md, .txt files
-- `images/` - .png, .jpg, .jpeg, .heic, .heif, .webp files
+- `docs/` - .pdf, .docx, .pages, .md, .txts files
+- `images/` - .png, .jpg, .jpeg, .heic, .heif files
 - `movies/` - .mp4, .mov files
+- `slides/` - .pptx files
 
-### Keyword-based sorting (Mode 1)
+### Keyword-based sorting
+```bash
+./sorta conf <directory>
+./sorta conf ~/Documents
+./sorta conf . --dry
+```
+
 Uses a config file to define custom sorting rules. The program creates `~/.sorta-config` automatically if it doesn't exist.
 
 **Config format:**
 ```
 keyword1,keyword2,keyword3=FolderName
 another,set,of,keywords=AnotherFolder
+*=Misc
 ```
 
 **Example config:**
@@ -56,51 +52,66 @@ another,set,of,keywords=AnotherFolder
 invoice,receipt,bill=Financial
 photo,img,picture=Photos
 code,src,dev=Development
+*=Others
 ```
 
-### Duplicate detection (Mode 2)
+**Wildcard support:**
+- Use `*` as a keyword to match all files that don't match any other rules
+- Files matching specific keywords will always take priority over the wildcard
+- Only one wildcard rule is supported
+
+### Duplicate detection
+```bash
+./sorta dupl <directory>
+./sorta dupl ~/Downloads --dry
+```
+
 - Calculates SHA256 checksums for all files
-- Shows checksum, filename, and file size for each file
 - Moves duplicate files to a `duplicates/` folder
 - First occurrence of each file stays in place
+- Files already in the duplicates folder are skipped
+
+### Find largest files
+```bash
+./sorta lrg <directory>
+./sorta lrg ~/Documents
+```
+
+Lists the top 5 largest files in the directory with human-readable sizes.
 
 ## Flags
 - `--dry` - Dry run mode: shows what would be moved without actually doing it
 
-## Examples
+Can be used with any command:
 ```bash
-# Sort Downloads folder by file type with dry run
-./sorta --dry Downloads
-# Mode: 0
-
-# Sort project folder using custom keywords
-./sorta Desktop/messy-project
-# Mode: 1
-
-# Find duplicates in current directory
-./sorta .
-# Mode: 2
+./sorta ext ~/Downloads --dry
+./sorta conf . --dry
+./sorta dupl Desktop --dry
 ```
+
+## Directory paths
+- Relative paths are resolved from your home directory: `Downloads`, `Desktop/project`
+- Absolute paths work too: `/Users/you/Documents`, `/tmp/files`
 
 ## Summary output
 After sorting, Sorta shows:
 - Number of files moved
 - Number of files skipped (files that didn't match any rules)
-- File sizes in bytes
-- For duplicates mode: checksum information for each file
 
 ## Config file details
 - Located at `~/.sorta-config`
 - Lines starting with `//` are comments
 - Format: `comma,separated,keywords=DestinationFolder`
-- Keywords match anywhere in the filename
-- Case-sensitive matching
+- **No spaces** between keywords, commas, and the equals sign
+- Keywords match anywhere in the filename (case-sensitive)
 - First matching rule wins
-- Files that don't match any keywords are skipped
+- Use `*` to catch all remaining files
+- Files that don't match any keywords are skipped (unless `*` is used)
 
 ## Notes
 - Files are moved, not copied
-- Hidden files (starting with `.`) and directories are ignored
-- The program shows file sizes and detailed move information
-- Requires write permissions in the target directory
+- Hidden files (starting with `.`) are ignored
+- Empty directories are automatically cleaned up after sorting
 - Creates destination folders automatically if they don't exist
+- Requires write permissions in the target directory
+- File sizes are displayed in human-readable format (B, KB, MB, GB, etc.)
