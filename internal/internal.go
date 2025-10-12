@@ -273,6 +273,7 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		if d.IsDir() {
 			f, err := os.Open(path)
+			defer f.Close()
 			if err != nil {
 				return err
 			}
@@ -309,12 +310,31 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		return nil
 	})
-
+	// Post move cleanup, currently only cleaning base empty folders
+	entries, _ := os.ReadDir(dir)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			dirPath := filepath.Join(dir, entry.Name())
+			f, err := os.Open(dirPath)
+			if err != nil {
+				return result, err
+			}
+			defer f.Close()
+			_, err = f.Readdir(1)
+			if err == io.EOF {
+				if err := os.Remove(dirPath); err != nil {
+					return result, err
+				}
+			}
+		}
+	}
 	return result, nil
 }
 
 func TopLargestFiles(dir string, n int) error {
-
+	if len(entries) < 1 {
+		return nil
+	} // buggy btw
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Size > entries[j].Size
 	})

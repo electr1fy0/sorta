@@ -44,7 +44,7 @@ var extCmd = &cobra.Command{
 }
 
 var configCmd = &cobra.Command{
-	Use:   "config <directory>",
+	Use:   "conf <directory>",
 	Short: "Sort files based on .sorta-config",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
