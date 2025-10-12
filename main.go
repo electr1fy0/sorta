@@ -78,6 +78,22 @@ var duplCmd = &cobra.Command{
 	},
 }
 
+var lrgCmd = &cobra.Command{
+	Short: "List top 5 largest files",
+	Use:   "lrg <directory>",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, err := validateDir(args[0])
+		if err != nil {
+			return err
+		}
+		if err := internal.TopLargestFiles(dir, 5); err != nil {
+			fmt.Printf("%sWarning:%s could not find largest files: %v\n", ansiYellow, ansiReset, err)
+		}
+		return err
+	},
+}
+
 func validateDir(path string) (string, error) {
 	if filepath.IsAbs(path) {
 		path = filepath.Clean(path)
@@ -115,17 +131,13 @@ func runSort(dir string) error {
 		return fmt.Errorf("failed to filter files: %w", err)
 	}
 
-	if err := internal.TopLargestFiles(dir, 5); err != nil {
-		fmt.Printf("%sWarning:%s could not find largest files: %v\n", ansiYellow, ansiReset, err)
-	}
-
 	res.Print()
 	return nil
 }
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry", false, "Do a dry run without making changes")
-	rootCmd.AddCommand(extCmd, configCmd, duplCmd)
+	rootCmd.AddCommand(extCmd, configCmd, duplCmd, lrgCmd)
 }
 
 func main() {

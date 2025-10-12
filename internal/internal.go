@@ -248,7 +248,6 @@ type FileInfo struct {
 var entries []FileInfo
 
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
-	entries = make([]FileInfo, 0, 1000)
 
 	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -277,7 +276,6 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if err != nil {
 			return err
 		}
-		entries = append(entries, FileInfo{d.Name(), stat.Size()})
 
 		size := stat.Size()
 		parentDir := filepath.Dir(path)
@@ -326,6 +324,23 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 }
 
 func TopLargestFiles(dir string, n int) error {
+	entries = make([]FileInfo, 0, 1000)
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		f, err := d.Info()
+		if err != nil {
+			return err
+		}
+		entries = append(entries, FileInfo{d.Name(), f.Size()})
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	if len(entries) < 1 {
 		return nil
 	} // buggy btw
