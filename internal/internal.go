@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,34 +21,23 @@ func (e *Executor) Execute(op FileOperation) error {
 	case OpMove:
 		destDir := filepath.Dir(op.DestPath)
 
-		// srcData, err := os.ReadFile(op.SourcePath)
-		// _, err = os.Stat(op.DestPath)
-		// if os.IsNotExist(err) { // file exists, yes = not not
-		// 	destData, _ := os.ReadFile(op.DestPath)
-		// 	checksum := sha256.Sum256(destData)
-		// 	checkStringDest := fmt.Sprintf("%x", checksum)
-
-		// 	checksumSrc := sha256.Sum256(srcData)
-		// 	checkstringSrc := fmt.Sprintf("%x", checksumSrc)
-		// 	fmt.Printf("src: %s dest: %s\n", checkstringSrc, checkStringDest)
-		// 	if checkStringDest == checkstringSrc {
-		// 		return nil
-		// 	}
-		// }
 		if op.DestPath == op.SourcePath {
 			return nil
 		}
-		os.MkdirAll(destDir, 0755)
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			return err
+		}
 		err := os.Rename(op.SourcePath, op.DestPath)
 
 		result.Moved++
-		fmt.Println("moved: ", op.Filename)
 		if err != nil {
-			log.Fatalln("error executing: ", err)
+			return fmt.Errorf("error executing: %w", err)
 		}
 
 	case OpDelete:
-		os.Remove(op.SourcePath)
+		if err := os.Remove(op.SourcePath); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -162,7 +150,7 @@ func (d *DuplicateFinder) Sort(baseDir, dir, filename string, size int64) (FileO
 func (r *SortResult) Print() {
 	fmt.Println("Moved:", r.Moved)
 	fmt.Println("Skipped:", r.Skipped)
-	fmt.Println("Errors: i don't know how to count them yet so 0 errors for now")
+	fmt.Println("Errors: no idea, mate")
 }
 
 func readConfigFile() (string, error) {
@@ -174,15 +162,12 @@ func readConfigFile() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory") // i'm lying here
-		os.Exit(1)
+		return "", fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
 	}
 
 	config := string(configBytes)
 	if strings.TrimSpace(config) == "" {
-		fmt.Println("Config file is empty. Add keywords to .sorta-config in home directory")
-
-		os.Exit(1)
+		return "", fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
 	}
 	return config, nil
 }
@@ -263,20 +248,19 @@ type FileInfo struct {
 var entries []FileInfo
 
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
-	// hashes := make(map[string]string)
 	entries = make([]FileInfo, 0, 1000)
 
-	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if d.IsDir() {
 			f, err := os.Open(path)
-			defer f.Close()
 			if err != nil {
 				return err
 			}
+			defer f.Close()
 			if _, err := f.Readdir(1); err == io.EOF {
 				if err := os.Remove(path); err != nil {
 					return err
@@ -290,14 +274,17 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 			return nil // skip hidden files
 		}
 		stat, err := d.Info()
-		entries = append(entries, FileInfo{d.Name(), stat.Size()})
-
 		if err != nil {
 			return err
 		}
+		entries = append(entries, FileInfo{d.Name(), stat.Size()})
+
 		size := stat.Size()
 		parentDir := filepath.Dir(path)
 		fileOp, err := sorter.Sort(dir, parentDir, filename, size)
+		if err != nil {
+			return err
+		}
 		err = executor.Execute(fileOp)
 		if err != nil {
 			fmt.Println("Error executing: ", err)
@@ -310,8 +297,15 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		return nil
 	})
+
+	if walkErr != nil {
+		return result, walkErr
+	}
 	// Post move cleanup, currently only cleaning base empty folders
-	entries, _ := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return result, err
+	}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			dirPath := filepath.Join(dir, entry.Name())
@@ -340,7 +334,7 @@ func TopLargestFiles(dir string, n int) error {
 	})
 
 	limit := min(len(entries), n)
-	if strings.HasPrefix(entries[0].Name, ".") {
+	if limit == 0 || strings.HasPrefix(entries[0].Name, ".") {
 		return nil
 	}
 	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
