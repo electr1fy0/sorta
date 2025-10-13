@@ -76,6 +76,7 @@ func (d *DuplicateFinder) Sort(baseDir, dir, filename string, size int64) (FileO
 			Type: OpSkip,
 		}, nil
 	}
+
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		return FileOperation{Type: OpSkip}, err

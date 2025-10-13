@@ -5,6 +5,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var DuplNuke = false
+
 var duplCmd = &cobra.Command{
 	Use:   "dupl <directory>",
 	Short: "Filter out duplicate files",
@@ -20,5 +22,6 @@ var duplCmd = &cobra.Command{
 }
 
 func init() {
+	duplCmd.PersistentFlags().BoolVar(&internal.DuplNuke, "nuke", false, "Delete duplicates permanently")
 	rootCmd.AddCommand(duplCmd)
 }

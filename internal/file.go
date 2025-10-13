@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var DuplNuke = false
+
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
 	result := SortResult{}
 
@@ -85,6 +87,9 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 			}
 		}
 	}
+	if DuplNuke {
+		os.RemoveAll(filepath.Join(dir, "duplicates"))
+	}
 
 	return result, nil
 }
@@ -122,8 +127,9 @@ func TopLargestFiles(dir string, n int) error {
 		return nil
 	}
 	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		fmt.Printf("%d. %s (%s)\n", i+1, entries[i].Name, humanReadable(entries[i].Size))
 	}
+
 	return nil
 }
