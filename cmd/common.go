@@ -42,7 +42,7 @@ func validateDir(path string) (string, error) {
 func runSort(dir string, sorter internal.Sorter) error {
 	fmt.Printf("%sDir:%s %s\n", ansiCyan, ansiReset, dir)
 
-	executor := &internal.Executor{DryRun: dryRun}
+	executor := &internal.Executor{DryRun: dryRun, Interactive: interactive}
 	reporter := &internal.Reporter{DryRun: dryRun}
 
 	res, err := internal.FilterFiles(dir, sorter, executor, reporter)

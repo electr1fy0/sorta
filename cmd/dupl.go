@@ -5,8 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var DuplNuke = false
-
 var duplCmd = &cobra.Command{
 	Use:   "dupl <directory>",
 	Short: "Filter out duplicate files",

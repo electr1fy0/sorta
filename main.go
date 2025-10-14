@@ -5,14 +5,12 @@ import (
 )
 
 // TODO:
-// fix recursive by appending subfolder path to dest or sth, idk
 // move to trash folder instead of deleting
 // a very interactive mode like
 // [?] Move file "weirdfile.xyz" (12 MB)?
 // [y] docs   [i] images   [m] movies   [s] skip
 // make logging tree like
 // cache checksum
-// a flag to just nuke duplicates
 // docs:
 // - file 1
 // - file 2

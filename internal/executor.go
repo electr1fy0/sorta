@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func (e *Executor) Execute(op FileOperation) (bool, error) {
@@ -18,6 +20,21 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		if op.DestPath == op.SourcePath {
 			return false, nil
 		}
+
+		if e.Interactive && op.Type == OpMove {
+			fmt.Printf("[?] Move file \"%s\"? [y/n]: ", op.Filename)
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				return false, err
+			}
+
+			choice := strings.TrimSpace(input)
+			if choice != "y" {
+				return false, nil
+			}
+		}
+
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			return false, err
 		}

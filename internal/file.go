@@ -44,15 +44,14 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		}
 
 		moved, err := executor.Execute(fileOp)
+
 		if err != nil {
 			result.Errors = append(result.Errors, err)
 			return nil
 		}
-
 		if moved {
 			result.Moved++
 		}
-
 		if fileOp.Type == OpSkip {
 			result.Skipped++
 		}

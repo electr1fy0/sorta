@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	dryRun bool
+	dryRun      bool
+	interactive bool
 )
 
 var rootCmd = &cobra.Command{
@@ -26,4 +27,5 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry", false, "Do a dry run without making changes")
+	rootCmd.PersistentFlags().BoolVar(&interactive, "interactive", false, "Interactive mode")
 }

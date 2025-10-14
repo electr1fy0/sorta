@@ -33,7 +33,8 @@ type FileOperation struct {
 }
 
 type Executor struct {
-	DryRun bool
+	DryRun      bool
+	Interactive bool
 }
 
 type ExtensionSorter struct {
