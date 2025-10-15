@@ -5,8 +5,6 @@ import (
 )
 
 // TODO:
-// Top priority: Undo option, store all changes in memory and flip the executor func behaviour
-// Do interactive undo:revert per step
 // move to trash folder instead of deleting
 // a very interactive mode like
 // make logging tree like

@@ -21,14 +21,10 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 			return nil
 		}
 
-		if d.IsDir() {
-			return nil // skip directories
+		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
+			return nil
 		}
 
-		filename := d.Name()
-		if strings.HasPrefix(filename, ".") {
-			return nil // skip hidden files
-		}
 		stat, err := d.Info()
 		if err != nil {
 			result.Errors = append(result.Errors, err)
@@ -37,7 +33,7 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		size := stat.Size()
 		parentDir := filepath.Dir(path)
-		fileOp, err := sorter.Sort(dir, parentDir, filename, size)
+		fileOp, err := sorter.Sort(dir, parentDir, d.Name(), size)
 		if err != nil {
 			result.Errors = append(result.Errors, err)
 			return nil
