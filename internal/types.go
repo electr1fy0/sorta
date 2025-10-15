@@ -35,7 +35,6 @@ type FileOperation struct {
 type Executor struct {
 	DryRun      bool
 	Interactive bool
-	Undo        bool
 }
 
 type ExtensionSorter struct {

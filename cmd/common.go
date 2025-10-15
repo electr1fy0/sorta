@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 )
@@ -53,4 +55,26 @@ func runSort(dir string, sorter internal.Sorter) error {
 	res.PrintandAskUndo()
 
 	return nil
+}
+
+var undoExecutor = internal.Executor{Interactive: interactive, DryRun: dryRun}
+
+func Undo() {
+	if undoExecutor.Interactive {
+		return
+	}
+
+	fmt.Println("[?] Undo? [y/n]")
+	input := bufio.NewReader(os.Stdin)
+	confirm, err := input.ReadString('\n')
+	if err != nil {
+		fmt.Println("Error taking undo input: ", err)
+	}
+
+	if strings.TrimSpace(confirm) == "y" {
+		for _, op := range internal.Operations {
+			undoExecutor.RevertExecute(op)
+		}
+		fmt.Println("Changes reverted.")
+	}
 }
