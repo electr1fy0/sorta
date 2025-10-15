@@ -50,6 +50,7 @@ func runSort(dir string, sorter internal.Sorter) error {
 		return fmt.Errorf("failed to filter files: %w", err)
 	}
 
-	res.Print()
+	res.PrintandAskUndo()
+
 	return nil
 }

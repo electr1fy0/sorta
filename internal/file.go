@@ -86,10 +86,10 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 			}
 		}
 	}
+
 	if DuplNuke {
 		os.RemoveAll(filepath.Join(dir, "duplicates"))
 	}
-
 	return result, nil
 }
 
