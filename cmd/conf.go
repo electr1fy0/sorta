@@ -23,6 +23,7 @@ var configCmd = &cobra.Command{
 		}
 
 		return runSort(dir, s)
+
 	},
 }
 

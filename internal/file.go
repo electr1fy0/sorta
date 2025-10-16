@@ -11,9 +11,9 @@ import (
 )
 
 var DuplNuke = false
+var result = SortResult{}
 
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
-	result := SortResult{}
 
 	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -58,11 +58,22 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 	if walkErr != nil {
 		result.Errors = append(result.Errors, walkErr)
 	}
+	err := cleanEmptyFolders(dir)
+	if err != nil {
+		result.Errors = append(result.Errors, err)
+	}
 
+	if DuplNuke {
+		os.RemoveAll(filepath.Join(dir, "duplicates"))
+	}
+	return result, nil
+}
+
+func cleanEmptyFolders(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		result.Errors = append(result.Errors, err)
-		return result, err
+		return err
 	}
 
 	for _, entry := range entries {
@@ -82,11 +93,7 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 			}
 		}
 	}
-
-	if DuplNuke {
-		os.RemoveAll(filepath.Join(dir, "duplicates"))
-	}
-	return result, nil
+	return nil
 }
 
 func TopLargestFiles(dir string, n int) error {

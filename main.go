@@ -5,8 +5,6 @@ import (
 )
 
 // TODO:
-// move to trash folder instead of deleting
-// a very interactive mode like
 // make logging tree like
 // cache checksum
 // docs:
@@ -23,7 +21,6 @@ import (
 // blacklist / whitelist (like gitignore)
 // interactive mode: ask users what to do with unmatched files
 // something called MIME type. use that instead of ext
-// Add * to add rest of the files to others * matches all
 
 func main() {
 	cmd.Execute()
