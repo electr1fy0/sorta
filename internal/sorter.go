@@ -49,14 +49,15 @@ func NewConfigSorter() (*ConfigSorter, error) {
 }
 
 func (s *ConfigSorter) Sort(baseDir, dir, filename string, size int64) (FileOperation, error) {
-	folder := categorize(*s.configData, filename)
+	srcPath := filepath.Join(dir, filename)
+	folder := categorize(*s.configData, filename, filepath.Ext(srcPath))
 
 	if folder == "" {
 		return FileOperation{Type: OpSkip}, nil
 	}
 	return FileOperation{
 		Type:       OpMove,
-		SourcePath: filepath.Join(dir, filename),
+		SourcePath: srcPath,
 		DestPath:   filepath.Join(baseDir, folder, filename),
 		Filename:   filename,
 		Size:       size,
