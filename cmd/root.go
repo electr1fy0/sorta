@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -13,9 +14,22 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "sorta <directory>",
+	Use:   "sorta",
 	Short: "CLI to sort files based on keywords and extensions",
 	Long:  "A file organization tool that can sort by extension, config rules, or find duplicates.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, err := validateDir(args[0])
+		if err != nil {
+			return err
+		}
+		configSorter, err := internal.NewConfigSorter()
+		if err != nil {
+			fmt.Println("error creating config sorter:", err)
+			return err
+		}
+		return runSort(dir, configSorter)
+	},
 }
 
 func Execute() {

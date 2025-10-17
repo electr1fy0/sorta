@@ -98,9 +98,6 @@ func categorize(configData ConfigData, filename, fileExt string) string {
 			if strings.Contains(filename, keyword) {
 				return foldername
 			}
-			if strings.Contains(filename, fileExt) {
-				return foldername
-			}
 		}
 	}
 
