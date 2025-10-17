@@ -13,8 +13,8 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "sorta",
-	Short: "CLI to sort files based on extension and keywords",
+	Use:   "sorta <directory>",
+	Short: "CLI to sort files based on keywords and extensions",
 	Long:  "A file organization tool that can sort by extension, config rules, or find duplicates.",
 }
 
