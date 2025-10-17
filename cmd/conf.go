@@ -15,76 +15,58 @@ var configCmd = &cobra.Command{
 }
 
 var configAddCmd = &cobra.Command{
-	Use:   "add",
+	Use:   "add <keyword> <foldername>",
 	Short: "Add new keyword-to-folder rule to .sorta-config",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 2 {
-			fmt.Println("usage: sorta config add <keyword> <foldername>")
-			return
-		}
-
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Println("error getting home directory:", err)
-			return
-		}
-
-		configPath := filepath.Join(homeDir, ".sorta-config")
-		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			fmt.Println("error opening .sorta-config:", err)
-			return
-		}
-		defer func() {
-			if cerr := f.Close(); cerr != nil {
-				fmt.Println("error closing .sorta-config:", cerr)
-			}
-		}()
-
-		keyword := args[0]
-		foldername := args[1]
-		line := fmt.Sprintf("%s=%s\n", keyword, foldername)
-
-		if _, err := f.WriteString(line); err != nil {
-			fmt.Println("error writing to .sorta-config:", err)
-			return
-		}
-
-		fmt.Printf("Added rule: %s=%s\n", keyword, foldername)
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return manageConfig(args[0], args[1], "add")
 	},
 }
 
 var configRemoveCmd = &cobra.Command{
-	Use:   "remove",
+	Use:   "remove <keyword>",
 	Short: "Remove a keyword-to-folder rule from .sorta-config",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 1 {
-			fmt.Println("usage: sorta config remove <keyword>")
-			return
-		}
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return manageConfig(args[0], "", "remove")
+	},
+}
 
-		homeDir, err := os.UserHomeDir()
+func manageConfig(keyword, foldername, operation string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("error getting home directory: %w", err)
+	}
+	configPath := filepath.Join(homeDir, ".sorta-config")
+
+	switch operation {
+	case "add":
+		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			fmt.Println("error getting home directory:", err)
-			return
+			return fmt.Errorf("error opening .sorta-config: %w", err)
 		}
+		defer f.Close()
 
-		configPath := filepath.Join(homeDir, ".sorta-config")
+		line := fmt.Sprintf("%s=%s\n", keyword, foldername)
+		if _, err := f.WriteString(line); err != nil {
+			return fmt.Errorf("error writing to .sorta-config: %w", err)
+		}
+		fmt.Printf("Added rule: %s=%s\n", keyword, foldername)
+		return nil
+	case "remove":
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Println(".sorta-config not found, nothing to remove")
-			} else {
-				fmt.Println("error reading .sorta-config:", err)
+				return fmt.Errorf(".sorta-config not found, nothing to remove")
 			}
-			return
+			return fmt.Errorf("error reading .sorta-config: %w", err)
 		}
 
 		lines := strings.Split(string(data), "\n")
 		var sb strings.Builder
 		found := false
 		for _, line := range lines {
-			if strings.HasPrefix(line, args[0]+"=") {
+			if strings.HasPrefix(line, keyword+"=") {
 				found = true
 				continue
 			}
@@ -94,17 +76,17 @@ var configRemoveCmd = &cobra.Command{
 		}
 
 		if !found {
-			fmt.Printf("no rule found for keyword: %s\n", args[0])
-			return
+			return fmt.Errorf("no rule found for keyword: %s", keyword)
 		}
 
 		if err := os.WriteFile(configPath, []byte(sb.String()), 0600); err != nil {
-			fmt.Println("error writing updated .sorta-config:", err)
-			return
+			return fmt.Errorf("error writing updated .sorta-config: %w", err)
 		}
-
-		fmt.Printf("removed rule for keyword: %s\n", args[0])
-	},
+		fmt.Printf("Removed rule for keyword: %s\n", keyword)
+		return nil
+	default:
+		return fmt.Errorf("unknown operation: %s", operation)
+	}
 }
 
 func init() {

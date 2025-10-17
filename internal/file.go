@@ -11,14 +11,13 @@ import (
 )
 
 var DuplNuke = false
-var result = SortResult{}
 
-func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (SortResult, error) {
+func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
+	result := &SortResult{}
 
 	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			result.Errors = append(result.Errors, err)
-			return nil
+			return err
 		}
 
 		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
@@ -27,23 +26,19 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		stat, err := d.Info()
 		if err != nil {
-			result.Errors = append(result.Errors, err)
-			return nil
+			return err
 		}
 
 		size := stat.Size()
 		parentDir := filepath.Dir(path)
 		fileOp, err := sorter.Sort(dir, parentDir, d.Name(), size)
 		if err != nil {
-			result.Errors = append(result.Errors, err)
-			return nil
+			return err
 		}
 
 		moved, err := executor.Execute(fileOp)
-
 		if err != nil {
-			result.Errors = append(result.Errors, err)
-			return nil
+			return err
 		}
 		if moved {
 			result.Moved++
@@ -56,15 +51,17 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 	})
 
 	if walkErr != nil {
-		result.Errors = append(result.Errors, walkErr)
+		return nil, walkErr
 	}
-	err := cleanEmptyFolders(dir)
-	if err != nil {
-		result.Errors = append(result.Errors, err)
+
+	if err := cleanEmptyFolders(dir); err != nil {
+		return nil, err
 	}
 
 	if DuplNuke {
-		os.RemoveAll(filepath.Join(dir, "duplicates"))
+		if err := os.RemoveAll(filepath.Join(dir, "duplicates")); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
@@ -72,8 +69,7 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 func cleanEmptyFolders(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		result.Errors = append(result.Errors, err)
-		return err
+		return fmt.Errorf("failed to read directory: %w", err)
 	}
 
 	for _, entry := range entries {
@@ -81,15 +77,17 @@ func cleanEmptyFolders(dir string) error {
 			dirPath := filepath.Join(dir, entry.Name())
 			f, err := os.Open(dirPath)
 			if err != nil {
-				result.Errors = append(result.Errors, err)
-				continue
+				return fmt.Errorf("failed to open directory: %w", err)
 			}
+			defer f.Close()
+
 			_, err = f.Readdir(1)
-			f.Close()
 			if err == io.EOF {
 				if err := os.Remove(dirPath); err != nil {
-					result.Errors = append(result.Errors, err)
+					return fmt.Errorf("failed to remove empty directory: %w", err)
 				}
+			} else if err != nil {
+				return fmt.Errorf("failed to read directory contents: %w", err)
 			}
 		}
 	}
@@ -102,7 +100,7 @@ func TopLargestFiles(dir string, n int) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
+		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
 		f, err := d.Info()
@@ -110,26 +108,24 @@ func TopLargestFiles(dir string, n int) error {
 			return err
 		}
 		entries = append(entries, FileInfo{d.Name(), f.Size()})
-
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to walk directory: %w", err)
 	}
 
-	if len(entries) < 1 {
+	if len(entries) == 0 {
+		fmt.Println("No files found.")
 		return nil
 	}
+
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Size > entries[j].Size
 	})
 
 	limit := min(len(entries), n)
-	if limit == 0 || strings.HasPrefix(entries[0].Name, ".") {
-		return nil
-	}
 	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
-	for i := range limit {
+	for i := 0; i < limit; i++ {
 		fmt.Printf("%d. %s (%s)\n", i+1, entries[i].Name, humanReadable(entries[i].Size))
 	}
 

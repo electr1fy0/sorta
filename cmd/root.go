@@ -25,8 +25,7 @@ var rootCmd = &cobra.Command{
 		}
 		configSorter, err := internal.NewConfigSorter()
 		if err != nil {
-			fmt.Println("error creating config sorter:", err)
-			return err
+			return fmt.Errorf("error creating config sorter: %w", err)
 		}
 		return runSort(dir, configSorter)
 	},

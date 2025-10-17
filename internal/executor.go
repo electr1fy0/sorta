@@ -8,16 +8,16 @@ import (
 	"strings"
 )
 
-var Operations = make([]FileOperation, 10)
+var Operations []FileOperation
 
 func (e *Executor) RevertExecute(op FileOperation) error {
 	srcDir := filepath.Dir(op.SourcePath)
 
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
-		return err
+		return fmt.Errorf("failed to create directory: %w", err)
 	}
 	if err := os.Rename(op.DestPath, op.SourcePath); err != nil {
-		return err
+		return fmt.Errorf("failed to revert operation: %w", err)
 	}
 	return nil
 }
@@ -29,49 +29,54 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 
 	switch op.Type {
 	case OpMove:
-		destDir := filepath.Dir(op.DestPath)
-
 		if op.DestPath == op.SourcePath {
 			return false, nil
 		}
 
 		reader := bufio.NewReader(os.Stdin)
-		if e.Interactive && op.Type == OpMove {
+		if e.Interactive {
 			fmt.Printf("[?] Move file \"%s\"? [y/n]: ", op.Filename)
 			input, err := reader.ReadString('\n')
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("error reading input: %w", err)
 			}
 			if strings.TrimSpace(input) != "y" {
 				return false, nil
 			}
 		}
 
+		destDir := filepath.Dir(op.DestPath)
 		if err := os.MkdirAll(destDir, 0755); err != nil {
-			return false, err
+			return false, fmt.Errorf("failed to create directory: %w", err)
 		}
 		if err := os.Rename(op.SourcePath, op.DestPath); err != nil {
-			return false, fmt.Errorf("error executing: %w", err)
+			return false, fmt.Errorf("failed to move file: %w", err)
 		}
+
 		if e.Interactive {
 			fmt.Println("[?] Undo? [y/n]")
 			undoInput, err := reader.ReadString('\n')
 			if err != nil {
-				return false, err
+				Operations = append(Operations, op)
+				return true, fmt.Errorf("error reading undo input: %w", err)
 			}
 			if strings.TrimSpace(undoInput) == "y" {
-				e.RevertExecute(op)
+				if err := e.RevertExecute(op); err != nil {
+					Operations = append(Operations, op)
+					return true, fmt.Errorf("failed to undo move: %w", err)
+				}
+				return false, nil
 			}
-
 		}
-		Operations = append(Operations, op)
 
+		Operations = append(Operations, op)
 		return true, nil
 
 	case OpDelete:
 		if err := os.Remove(op.SourcePath); err != nil {
-			return false, err
+			return false, fmt.Errorf("failed to delete file: %w", err)
 		}
+		return true, nil
 	}
 
 	return false, nil

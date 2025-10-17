@@ -52,29 +52,35 @@ func runSort(dir string, sorter internal.Sorter) error {
 		return fmt.Errorf("failed to filter files: %w", err)
 	}
 
-	res.PrintandAskUndo()
+	res.PrintSummary()
+	if err := Undo(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 var undoExecutor = internal.Executor{Interactive: interactive, DryRun: dryRun}
 
-func Undo() {
-	if undoExecutor.Interactive {
-		return
+func Undo() error {
+	if undoExecutor.Interactive || dryRun || len(internal.Operations) == 0 {
+		return nil
 	}
 
 	fmt.Println("[?] Undo? [y/n]")
 	input := bufio.NewReader(os.Stdin)
 	confirm, err := input.ReadString('\n')
 	if err != nil {
-		fmt.Println("Error taking undo input: ", err)
+		return fmt.Errorf("error taking undo input: %w", err)
 	}
 
 	if strings.TrimSpace(confirm) == "y" {
 		for _, op := range internal.Operations {
-			undoExecutor.RevertExecute(op)
+			if err := undoExecutor.RevertExecute(op); err != nil {
+				return fmt.Errorf("error reverting operation: %w", err)
+			}
 		}
 		fmt.Println("Changes reverted.")
 	}
+	return nil
 }
