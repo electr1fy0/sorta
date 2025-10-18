@@ -1,19 +1,57 @@
 # Sorta
-Sorts files in a directory based on keywords, finds dupes, or lists largest files.
+Sorts files in a directory based on keywords, finds duplicates, or lists largest files.
 
 ## Install
-### From source
+
+### From GitHub Releases
+Download the latest binary from [GitHub Releases](https://github.com/electr1fy0/sorta/releases) for your platform.
+
+**Linux/macOS:**
 ```bash
-git clone https://github.com/electr1fy0/sorta.git
-cd sorta
-go build -o sorta
+# Download and extract
+curl -LO https://github.com/electr1fy0/sorta/releases/latest/download/sorta-linux-amd64.tar.gz
+tar -xzf sorta-linux-amd64.tar.gz
+
+# Move to PATH
+sudo mv sorta /usr/local/bin/
 ```
+
+**Windows:**
+Obtain the `.exe`, then add it to PATH:
+1. Move `sorta.exe` to `C:\Program Files\sorta\`
+2. Search "Environment Variables" → Edit "Path" → Add `C:\Program Files\sorta\`
+
 ### Using `go install`
 ```bash
 go install github.com/electr1fy0/sorta@latest
 ```
 
+If `sorta` command isn't found, add Go's bin directory to PATH:
+
+**Linux/macOS:**
+```bash
+echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc  # or ~/.zshrc
+```
+
+**Windows (PowerShell):**
+```powershell
+$gopath = go env GOPATH
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$gopath\bin", "User")
+```
+
+### From source
+```bash
+git clone https://github.com/electr1fy0/sorta.git
+cd sorta
+go build -o sorta
+
+# Move to PATH
+sudo mv sorta /usr/local/bin/
+```
+
 ## Usage
+
 ### Sort by keywords (default)
 ```bash
 sorta <directory>
@@ -39,7 +77,7 @@ Development=code,src,dev
 Others=*
 ```
 
-Use `*` to match everything that doesn't match other rules. Specific keywords always take priority.
+Use `*` to match everything that doesn't match other rules. Specific keywords always take priority. Rules higher in the config are matched first.
 
 ### Find duplicates
 ```bash
@@ -61,6 +99,8 @@ Shows top 5 largest files.
 sorta config add <foldername> <keyword1> <keyword2>...
 sorta config remove <foldername>
 ```
+
+Or manually edit `~/.sorta-config` to adjust folder names, keywords, and match priority.
 
 ## Flags
 - `--dry` - Preview changes without moving files
