@@ -33,17 +33,17 @@ func ParseConfig() (*ConfigData, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "//") || strings.TrimSpace(line) == "" {
+		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
 			continue
 		}
 
 		parts := strings.Split(line, "=")
 		if len(parts) != 2 {
-			continue // Invalid line format
+			continue
 		}
 
-		folder := strings.TrimSpace(parts[1])
-		keywords := strings.Split(parts[0], ",")
+		folder := strings.TrimSpace(parts[0])
+		keywords := strings.Split(parts[1], ",")
 		for i, k := range keywords {
 			keywords[i] = strings.TrimSpace(k)
 		}
