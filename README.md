@@ -9,10 +9,16 @@ Sorta cleans up messy directories by automatically moving files into organized f
 3.  **Largest files** - Lists the top 5 largest files in a directory.
 
 ## Installation
+### From source
 ```bash
 git clone https://github.com/electr1fy0/sorta.git
 cd sorta
 go build -o sorta
+```
+
+### Using `go install`
+```bash
+go install github.com/electr1fy0/sorta@latest
 ```
 
 ## Usage
@@ -20,9 +26,9 @@ go build -o sorta
 ### Keyword-based sorting (Default)
 To sort files based on your configuration, simply provide a directory path.
 ```bash
-./sorta <directory>
-./sorta ~/Downloads
-./sorta Desktop/messy-folder --dry
+sorta <directory>
+sorta ~/Downloads
+sorta Desktop/messy-folder --dry
 ```
 
 This command uses a config file at `~/.sorta-config` to define custom sorting rules. If the file doesn't exist, `sorta` will create a default one for you to edit.
@@ -49,18 +55,19 @@ Others=*
 
 ### Duplicate detection
 ```bash
-./sorta dupl <directory>
-./sorta dupl ~/Downloads --dry
+sorta dupl <directory>
+sorta dupl ~/Downloads --dry
 ```
 
 - Calculates SHA256 checksums for all files.
 - Moves duplicate files to a `duplicates/` folder.
 - The first occurrence of each file is left in its original place.
+- Use the `--nuke` flag to permanently delete the `duplicates` folder and its contents.
 
 ### Find largest files
 ```bash
-./sorta lrg <directory>
-./sorta lrg ~/Documents
+sorta lrg <directory>
+sorta lrg ~/Documents
 ```
 
 Lists the top 5 largest files in the specified directory with human-readable sizes.
@@ -70,14 +77,14 @@ You can easily add or remove rules from your `~/.sorta-config` file.
 
 **Add a rule:**
 ```bash
-./sorta config add <keyword> <foldername>
-./sorta config add invoice Financial
+sorta config add <foldername> <keyword1> <keyword2>...
+sorta config add Financial invoice receipt bill
 ```
 
 **Remove a rule:**
 ```bash
-./sorta config remove <keyword>
-./sorta config remove invoice
+sorta config remove <foldername>
+sorta config remove Financial
 ```
 
 ## Global Flags
@@ -88,8 +95,8 @@ These flags can be used with any command.
 
 **Examples:**
 ```bash
-./sorta ~/Downloads --dry
-./sorta dupl Desktop --interactive
+sorta ~/Downloads --dry
+sorta dupl Desktop --interactive
 ```
 
 ## Notes
