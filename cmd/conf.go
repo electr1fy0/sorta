@@ -15,8 +15,8 @@ var configCmd = &cobra.Command{
 }
 
 var configAddCmd = &cobra.Command{
-	Use:   "add <keyword> <foldername>",
-	Short: "Add new keyword-to-folder rule to .sorta-config",
+	Use:   "add <foldername> <keyword1> <keyword2>...",
+	Short: "Add new folder-to-keyword rule to .sorta-config",
 	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		foldername := args[0]
@@ -27,8 +27,8 @@ var configAddCmd = &cobra.Command{
 }
 
 var configRemoveCmd = &cobra.Command{
-	Use:   "remove <keyword>",
-	Short: "Remove a keyword-to-folder rule from .sorta-config",
+	Use:   "remove <foldername>",
+	Short: "Remove a folder-to-keyword rule from .sorta-config",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keywords := args[0:]
@@ -58,35 +58,35 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		fmt.Printf("Added rule: %s=%s\n", foldername, keyLine)
 		return nil
 	case "remove":
-		// data, err := os.ReadFile(configPath)
-		// if err != nil {
-		// 	if os.IsNotExist(err) {
-		// 		return fmt.Errorf(".sorta-config not found, nothing to remove")
-		// 	}
-		// 	return fmt.Errorf("error reading .sorta-config: %w", err)
-		// }
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf(".sorta-config not found, nothing to remove")
+			}
+			return fmt.Errorf("error reading .sorta-config: %w", err)
+		}
 
-		// lines := strings.Split(string(data), "\n")
-		// var sb strings.Builder
-		// found := false
-		// for _, line := range lines {
-		// 	if strings.HasPrefix(line, keywords[0]+"=") {
-		// 		found = true
-		// 		continue
-		// 	}
-		// 	if line != "" {
-		// 		sb.WriteString(line + "\n")
-		// 	}
-		// }
+		lines := strings.Split(string(data), "\n")
+		var sb strings.Builder
+		found := false
+		for _, line := range lines {
+			if strings.HasPrefix(line, keywords[0]+" =") {
+				found = true
+				continue
+			}
+			if line != "" {
+				sb.WriteString(line + "\n")
+			}
+		}
 
-		// if !found {
-		// 	return fmt.Errorf("no rule found for keyword: %s", keywords[0])
-		// }
+		if !found {
+			return fmt.Errorf("no rule found for folder: %s", keywords[0])
+		}
 
-		// if err := os.WriteFile(configPath, []byte(sb.String()), 0600); err != nil {
-		// 	return fmt.Errorf("error writing updated .sorta-config: %w", err)
-		// }
-		// fmt.Printf("Removed rule for keyword: %s\n", keywords[0])
+		if err := os.WriteFile(configPath, []byte(sb.String()), 0600); err != nil {
+			return fmt.Errorf("error writing updated .sorta-config: %w", err)
+		}
+		fmt.Printf("Removed rule for foldername: %s\n", keywords[0])
 		return nil
 	default:
 		return fmt.Errorf("unknown operation: %s", operation)
