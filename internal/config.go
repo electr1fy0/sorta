@@ -66,19 +66,19 @@ func createConfig(path string) error {
 	content := []byte(`// Config file for 'sorta'
 //
 // Each line defines how files should be sorted.
-// Format: key1,key2,key3 = folderName
+// Format: folderName = key1,key2,key3
 //
-// - key1, key2, key3, etc are keywords to match in file names.
 // - folderName is the target folder for those files.
-// - You can list one or many keywords before the '='.
+// - key1, key2, key3, etc are keywords to match in file names.
+// - You can list one or many keywords after the '='.
 // - Lines starting with '//' are comments and ignored.
 // - Make sure no spaces exist between the keys and values
 // - * as a keyword matches all filenames which don't contain the other keywords
 // Example:
-// invoice,bill,txt=Finance
-// track,song=Music
-// notes,book=Study
-// *=others`)
+// Finance=invoice,bill,txt
+// Music=track,song
+// Study=notes,book
+// others=*`)
 
 	if err := os.WriteFile(path, content, 0600); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)

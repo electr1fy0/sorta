@@ -52,10 +52,10 @@ func runSort(dir string, sorter internal.Sorter) error {
 		return fmt.Errorf("failed to filter files: %w", err)
 	}
 
-	res.PrintSummary()
 	if err := Undo(); err != nil {
 		return err
 	}
+	res.PrintSummary()
 
 	return nil
 }
@@ -63,7 +63,12 @@ func runSort(dir string, sorter internal.Sorter) error {
 var undoExecutor = internal.Executor{Interactive: interactive, DryRun: dryRun}
 
 func Undo() error {
-	if undoExecutor.Interactive || dryRun || len(internal.Operations) == 0 {
+	if undoExecutor.Interactive || dryRun {
+		return nil
+	}
+
+	if len(internal.Operations) == 0 {
+		fmt.Println("No operations to undo.")
 		return nil
 	}
 

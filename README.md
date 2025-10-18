@@ -30,17 +30,17 @@ This command uses a config file at `~/.sorta-config` to define custom sorting ru
 **Config format:**
 ```
 # Lines starting with '#' or '//' are comments.
-keyword1,keyword2=FolderName
-another,set,of,keywords=AnotherFolder
-*=Misc
+FolderName=keyword1,keyword2
+AnotherFolder=another,set,of,keywords
+Misc=*
 ```
 
 **Example config:**
 ```
-invoice,receipt,bill=Financial
-photo,img,picture=Photos
-code,src,dev=Development
-*=Others
+Financial=invoice,receipt,bill
+Photos=photo,img,picture
+Development=code,src,dev
+Others=*
 ```
 
 **Wildcard support:**
