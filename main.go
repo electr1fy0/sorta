@@ -5,6 +5,7 @@ import (
 )
 
 // TODO:
+// Blacklist foldernames
 // make logging tree like
 // cache checksum
 // docs:

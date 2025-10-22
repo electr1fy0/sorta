@@ -14,6 +14,7 @@ var DuplNuke = false
 
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
 	result := &SortResult{}
+	var operations []FileOperation
 
 	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -35,23 +36,26 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if err != nil {
 			return err
 		}
-
-		moved, err := executor.Execute(fileOp)
-		if err != nil {
-			return err
-		}
-		if moved {
-			result.Moved++
-		}
-		if fileOp.Type == OpSkip {
-			result.Skipped++
-		}
-
+		operations = append(operations, fileOp)
 		return nil
 	})
 
 	if walkErr != nil {
 		return nil, walkErr
+	}
+
+	for _, op := range operations {
+		moved, err := executor.Execute(op)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error executing operation for %s: %v\n", op.Filename, err)
+			continue
+		}
+		if moved {
+			result.Moved++
+		}
+		if op.Type == OpSkip {
+			result.Skipped++
+		}
 	}
 
 	if err := cleanEmptyFolders(dir); err != nil {

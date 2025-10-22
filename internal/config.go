@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var blacklistedFolders = make([]string, 0, 10)
+
 func ParseConfig() (*ConfigData, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -37,6 +39,10 @@ func ParseConfig() (*ConfigData, error) {
 			continue
 		}
 
+		if cleanedLine, found := strings.CutPrefix(line, "!"); found {
+			blacklistedFolders = append(blacklistedFolders, strings.TrimSpace(cleanedLine))
+			continue
+		}
 		parts := strings.Split(line, "=")
 		if len(parts) != 2 {
 			continue

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -32,7 +33,11 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		if op.DestPath == op.SourcePath {
 			return false, nil
 		}
-
+		srcDir := filepath.Dir(op.SourcePath)
+		srcDirName := filepath.Base(srcDir)
+		if slices.Contains(blacklistedFolders, srcDirName) {
+			return false, nil
+		}
 		reader := bufio.NewReader(os.Stdin)
 		if e.Interactive {
 			fmt.Printf("[?] Move file \"%s\"? [y/n]: ", op.Filename)
@@ -46,6 +51,7 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		}
 
 		destDir := filepath.Dir(op.DestPath)
+
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			return false, fmt.Errorf("failed to create directory: %w", err)
 		}
