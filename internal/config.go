@@ -79,12 +79,18 @@ func createConfig(path string) error {
 // - key1, key2, key3, etc are keywords to match in file names.
 // - You can list one or many keywords after the '='.
 // - Lines starting with '//' are comments and ignored.
+// - Add a ! followed by a foldername to blacklist the folder from being touched by sorta
 // - * as a keyword matches all filenames which don't contain the other keywords
 // Example:
+//
+//
 // Finance=invoice,bill,txt
 // Music=track,song
 // Study=notes,book
-// others=*`)
+// others=*
+//
+// // Important folder that sorta move from:
+// !my-secret-folder`)
 
 	if err := os.WriteFile(path, content, 0600); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)

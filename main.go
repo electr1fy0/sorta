@@ -22,7 +22,7 @@ import (
 // blacklist / whitelist (like gitignore)
 // interactive mode: ask users what to do with unmatched files
 // something called MIME type. use that instead of ext
-
+// Fast (practical) interactive mode: ask for each folder only once for each subfolder
 func main() {
 	cmd.Execute()
 }
