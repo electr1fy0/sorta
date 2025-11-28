@@ -75,24 +75,35 @@ func (s *ConfigSorter) Sort(filePaths []FilePath) ([]FileOperation, error) {
 }
 
 func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
-	ops := make([]FileOperation, 0, 10)
+	ops := make([]FileOperation, 0, 20)
+	filenames := make([]string, 0, 20)
+	newnames := make([]string, 0, 20)
 
+	for _, filename := range filePaths {
+		filenames = append(filenames, filename.Filename)
+	}
 	prompt := `Return the **exact same JSON structure**.
 Only modify the **final filename segment** of each path.
 
 Rules for renaming:
 - Each filename must be **unique** and must reflect the file’s actual purpose or meaning. The more specific the better.
 - Remove generic or redundant clutter from filenames.
-- If all files have the same substring and you thing it does not help much either shorten it..
+- If multiple files have the same substring and you thing it does not help much shorten that part.
+- If a filename has redundant info in one way or another. Strip off the redundancy. e.g. Repeated mentions of a year, name, subject, title, etc.
+- Given College/School documents, try to trim down the Semester/Class year name / number to a more concise representation.
 - Each file should have its unique determiner.
-- Do not change directories, sizes, or JSON structure.
+- Do not change JSON structure.
+- If the name is too long, definitely try to shorten it.
 - Do not add any new fields.
+- Have a consistent usage of _ or - or spaces all across.
+- If filename really does not need to be changed, at least style it better.
 - All filenames should have a similar consistent modern styling.
 - If you cannot safely rename, return the JSON unchanged.
 
 
 Output **only** the raw JSON as a plain string. Nothing else. Don't even add the code blocks or syntax highlight at all. Zero formatting.`
-	marshalled, _ := json.Marshal(filePaths)
+
+	marshalled, _ := json.Marshal(filenames)
 
 	ctx := context.Background()
 
@@ -100,7 +111,6 @@ Output **only** the raw JSON as a plain string. Nothing else. Don't even add the
 
 	resp, _ := client.Models.GenerateContent(ctx, "gemini-2.5-flash", genai.Text(prompt+"\n"+string(marshalled)), nil)
 
-	var newPaths []FilePath
 	raw := resp.Text()
 
 	raw = strings.TrimSpace(raw)
@@ -108,17 +118,14 @@ Output **only** the raw JSON as a plain string. Nothing else. Don't even add the
 	raw = strings.TrimPrefix(raw, "```")
 	raw = strings.TrimPrefix(raw, "```")
 
-	// split := strings.Split(raw, "```")
-	// fmt.Println(split)
-
-	err := json.Unmarshal([]byte(raw), &newPaths)
+	err := json.Unmarshal([]byte(raw), &newnames)
 	if err != nil {
 		fmt.Println(err)
 
 	}
-	// fmt.Println(newPaths)
+
 	for i, filePath := range filePaths {
-		op := FileOperation{OpMove, filepath.Join(filePath.FullDir, filePath.Filename), filepath.Join(newPaths[i].FullDir, newPaths[i].Filename), newPaths[i].Filename, filePath.Size}
+		op := FileOperation{OpMove, filepath.Join(filePath.FullDir, filePath.Filename), filepath.Join(filePaths[i].FullDir, newnames[i]), newnames[i], filePath.Size}
 		ops = append(ops, op)
 	}
 	return ops, err

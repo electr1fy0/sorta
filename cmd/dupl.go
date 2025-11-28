@@ -10,7 +10,7 @@ package cmd
 // 			return err
 // 		}
 
-// 		return runSort(dir, internal.NewDuplicateFinder())
+// return runSort(dir, internal.NewDuplicateFinder())
 // 	},
 // }
 
