@@ -66,6 +66,7 @@ func ParseConfig() (*ConfigData, error) {
 	}
 
 	return &configData, nil
+
 }
 
 func createConfig(path string) error {

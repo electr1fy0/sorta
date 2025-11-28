@@ -75,60 +75,118 @@ func (s *ConfigSorter) Sort(filePaths []FilePath) ([]FileOperation, error) {
 }
 
 func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
-	ops := make([]FileOperation, 0, 20)
-	filenames := make([]string, 0, 20)
-	newnames := make([]string, 0, 20)
-
-	for _, filename := range filePaths {
-		filenames = append(filenames, filename.Filename)
+	filenames := make([]string, len(filePaths))
+	for i, f := range filePaths {
+		filenames[i] = f.Filename
 	}
-	prompt := `Return the **exact same JSON structure**.
-Only modify the **final filename segment** of each path.
 
-Rules for renaming:
-- Each filename must be **unique** and must reflect the file’s actual purpose or meaning. The more specific the better.
-- Remove generic or redundant clutter from filenames.
-- If multiple files have the same substring and you thing it does not help much shorten that part.
-- If a filename has redundant info in one way or another. Strip off the redundancy. e.g. Repeated mentions of a year, name, subject, title, etc.
-- Given College/School documents, try to trim down the Semester/Class year name / number to a more concise representation.
-- Each file should have its unique determiner.
-- Do not change JSON structure.
-- If the name is too long, definitely try to shorten it.
-- Do not add any new fields.
-- Have a consistent usage of _ or - or spaces all across.
-- If filename really does not need to be changed, at least style it better.
-- All filenames should have a similar consistent modern styling.
-- If you cannot safely rename, return the JSON unchanged.
+	marshalledPayload, err := json.Marshal(filenames)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal filenames: %w", err)
+	}
 
+	prompt := `You are an intelligent file renaming engine. Your goal is to transform filenames to be concise, meaningful, and machine-friendly (snake_case).
 
-Output **only** the raw JSON as a plain string. Nothing else. Don't even add the code blocks or syntax highlight at all. Zero formatting.`
+Input: A JSON array of filename strings.
+Output: A JSON array of transformed filename strings.
 
-	marshalled, _ := json.Marshal(filenames)
+### CRITICAL OUTPUT RULES (Zero Tolerance):
+1. Return **ONLY** the raw JSON array. No Markdown, no code blocks, no explanations.
+2. The output array MUST have the exact same number of elements as the input.
+3. **Uniqueness is Mandatory:** If two files reduce to the same name, you MUST append a discriminator (e.g., "_v1", "_v2", or keep the original number).
+
+### TRANSFORMATION LOGIC (Execute in Order):
+
+1. **Standardization:**
+   - Convert to 'snake_case' (lowercase, underscores).
+   - Replace spaces, hyphens, and dots (except the extension dot) with underscores.
+   - Remove special characters like parentheses '()'.
+
+2. **Semantic Cleaning (The "Human" Rule):**
+   - **Remove Clutter:** Strip generic words that add no value: "copy", "final", "draft", "new", "converted", "document", "file".
+   - **Remove Redundancy:** If a word (like a year, subject, or name) appears multiple times in the string, keep only one instance.
+   - **Focus on Purpose:** Ensure the filename reflects *what* the file is. If the name is extremely long, shorten it to the 3-4 most significant keywords.
+
+3. **Academic & Technical Abbreviations (Strict Mapping):**
+   - "Assignment" -> "asn"
+   - "Experiment" / "Exp" -> "exp"
+   - "Laboratory" / "Lab" -> "lab"
+   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "s5")
+   - "Project" -> "proj"
+   - "Syllabus" -> "syl"
+   - "Question Paper" / "QP" -> "qp"
+   - "Introduction" -> "intro"
+   - Years: "2024-2025" -> "24_25", "2024" -> "24"
+
+4. **Safety:**
+   - NEVER change the file extension.
+
+### FEW-SHOT EXAMPLES (Mimic this style):
+
+Input:  ["Copy of Operating Systems Sem 5 Final Notes (2024).pdf", "Data_Structures_Assignment_1_FINAL_v2.docx"]
+Output: ["os_s5_notes_24.pdf", "dsa_asn_1_v2.docx"]
+
+Input:  ["project_report_final_final_print.pdf", "my_resume_engineering_2025_updated.pdf"]
+Output: ["proj_report_print.pdf", "resume_eng_25.pdf"]
+
+Input:  ["lab_experiment_1.txt", "lab_experiment_2.txt"]
+Output: ["lab_exp_1.txt", "lab_exp_2.txt"]
+
+PAYLOAD:`
 
 	ctx := context.Background()
+	client, err := genai.NewClient(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create genai client: %w", err)
+	}
 
-	client, _ := genai.NewClient(ctx, nil)
-
-	resp, _ := client.Models.GenerateContent(ctx, "gemini-2.5-flash", genai.Text(prompt+"\n"+string(marshalled)), nil)
+	resp, err := client.Models.GenerateContent(ctx, "gemini-2.5-flash-lite", genai.Text(prompt+"\n"+string(marshalledPayload)), nil)
+	if err != nil {
+		return nil, fmt.Errorf("gemini request failed: %w", err)
+	}
 
 	raw := resp.Text()
-
 	raw = strings.TrimSpace(raw)
-	raw = strings.TrimPrefix(raw, "```json")
-	raw = strings.TrimPrefix(raw, "```")
-	raw = strings.TrimPrefix(raw, "```")
 
-	err := json.Unmarshal([]byte(raw), &newnames)
-	if err != nil {
-		fmt.Println(err)
-
+	var newnames []string
+	if err := json.Unmarshal([]byte(raw), &newnames); err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w. Raw output: %s", err, raw)
 	}
 
-	for i, filePath := range filePaths {
-		op := FileOperation{OpMove, filepath.Join(filePath.FullDir, filePath.Filename), filepath.Join(filePaths[i].FullDir, newnames[i]), newnames[i], filePath.Size}
+	if len(newnames) != len(filePaths) {
+		return nil, fmt.Errorf("integrity error: sent %d files, received %d names", len(filePaths), len(newnames))
+	}
+
+	ops := make([]FileOperation, 0, len(filePaths))
+	seen := make(map[string]bool)
+
+	for i, newName := range newnames {
+		if strings.TrimSpace(newName) == "" {
+			newName = filenames[i]
+		}
+
+		base := newName
+		ext := filepath.Ext(newName)
+		nameNoExt := strings.TrimSuffix(base, ext)
+		counter := 1
+
+		for seen[newName] {
+			newName = fmt.Sprintf("%s_v%d%s", nameNoExt, counter, ext)
+			counter++
+		}
+		seen[newName] = true
+
+		op := FileOperation{
+			Type:       OpMove,
+			SourcePath: filepath.Join(filePaths[i].FullDir, filePaths[i].Filename),
+			DestPath:   filepath.Join(filePaths[i].FullDir, newName),
+			Filename:   newName,
+			Size:       filePaths[i].Size,
+		}
 		ops = append(ops, op)
 	}
-	return ops, err
+
+	return ops, nil
 }
 
 func NewDuplicateFinder() *DuplicateFinder {
