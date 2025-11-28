@@ -87,6 +87,7 @@ Rules for renaming:
 - Each file should have its unique determiner.
 - Do not change directories, sizes, or JSON structure.
 - Do not add any new fields.
+- All filenames should have a similar consistent modern styling.
 - If you cannot safely rename, return the JSON unchanged.
 
 
@@ -115,11 +116,11 @@ Output **only** the raw JSON as a plain string. Nothing else. Don't even add the
 		fmt.Println(err)
 
 	}
-	fmt.Println(newPaths)
-	// for i, filePath := range filePaths {
-	// 	op := FileOperation{OpMove, filepath.Join(filePath.FullDir, filePath.Filename), filepath.Join(newPaths[i].FullDir, newPaths[i].Filename), newPaths[i].Filename, filePath.Size}
-	// 	ops = append(ops, op)
-	// }
+	// fmt.Println(newPaths)
+	for i, filePath := range filePaths {
+		op := FileOperation{OpMove, filepath.Join(filePath.FullDir, filePath.Filename), filepath.Join(newPaths[i].FullDir, newPaths[i].Filename), newPaths[i].Filename, filePath.Size}
+		ops = append(ops, op)
+	}
 	return ops, err
 }
 
