@@ -5,24 +5,26 @@ import (
 )
 
 // TODO:
-// Blacklist foldernames
-// make logging tree like
-// cache checksum
-// docs:
-// - file 1
-// - file 2
-// images:
-// - img 1
-// - img 2
-// sort by size by calculating average size
-// sort by data
-// more expressive summary
-// concurrency in system calls
-// regex support in config
-// blacklist / whitelist (like gitignore)
-// interactive mode: ask users what to do with unmatched files
-// something called MIME type. use that instead of ext
-// Fast (practical) interactive mode: ask for each folder only once for each subfolder
+// ─── FEATURES ──────────────────────────────────────────────────────────────
+// • Blacklist / Whitelist folders (gitignore-style)
+// • Regex support in config
+// • Use MIME type detection instead of file extensions
+// • Interactive mode:
+//   - Ask actions for unmatched files
+//   - Fast mode: prompt once per folder
+// • Add concurrency for system calls
+// • Option to not go recursive / blacklist all subfolders
+
+//
+// ─── SORTING ────────────────────────────────────────────────────
+// • Sort by average file size
+// • Sort by file data
+// • More expressive expressive summary
+//
+// ─── CACHE & LOGGING ───────────────────────────────────────────────────────
+// • Cache file checksums
+// • Tree-style logging
+
 func main() {
 	cmd.Execute()
 }

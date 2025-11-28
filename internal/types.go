@@ -13,7 +13,7 @@ type ConfigData struct {
 }
 
 type Sorter interface {
-	Sort(baseDir, dir string, filename string, size int64) (FileOperation, error)
+	Sort(filePaths []FilePath) ([]FileOperation, error)
 }
 
 type OperationType int
@@ -47,6 +47,9 @@ type ConfigSorter struct {
 
 type DuplicateFinder struct {
 	hashes map[string]string
+}
+
+type Renamer struct {
 }
 
 type SortResult struct {

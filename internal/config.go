@@ -81,8 +81,8 @@ func createConfig(path string) error {
 // - Lines starting with '//' are comments and ignored.
 // - Add a ! followed by a foldername to blacklist the folder from being touched by sorta
 // - * as a keyword matches all filenames which don't contain the other keywords
-// Example:
 //
+// Example:
 //
 // Finance=invoice,bill,txt
 // Music=track,song

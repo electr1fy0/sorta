@@ -12,10 +12,17 @@ import (
 
 var DuplNuke = false
 
+type FilePath struct {
+	BaseDir  string `json:"BaseDir"`
+	FullDir  string `json:"FullDir"`
+	Filename string `json:"Filename"`
+	Size     int64  `json:"size"`
+}
+
 func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
 	result := &SortResult{}
 	var operations []FileOperation
-
+	var filePaths []FilePath
 	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -24,7 +31,6 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
-
 		stat, err := d.Info()
 		if err != nil {
 			return err
@@ -32,17 +38,21 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 		size := stat.Size()
 		parentDir := filepath.Dir(path)
-		fileOp, err := sorter.Sort(dir, parentDir, d.Name(), size)
-		if err != nil {
-			return err
-		}
-		operations = append(operations, fileOp)
+
+		filePaths = append(filePaths, FilePath{dir, parentDir, d.Name(), size})
+		// fileOp, err := sorter.Sort(dir, parentDir, d.Name(), size)
+		// if err != nil {
+		// 	return err
+		// }
+		// operations = append(operations, fileOp)
 		return nil
 	})
 
 	if walkErr != nil {
 		return nil, walkErr
 	}
+
+	operations, _ = sorter.Sort(filePaths)
 
 	for _, op := range operations {
 		moved, err := executor.Execute(op)
