@@ -140,32 +140,40 @@ func NewDuplicateFinder() *DuplicateFinder {
 func NewRenamer() *Renamer {
 	return &Renamer{}
 }
+func (d *DuplicateFinder) Sort(filepaths []FilePath) ([]FileOperation, error) {
+	ops := make([]FileOperation, 0, len(filepaths))
 
-func (d *DuplicateFinder) Sort(BaseDir, dir, filename string, size int64) (FileOperation, error) {
-	fullPath := filepath.Join(dir, filename)
-	if fullPath == filepath.Join(BaseDir, "duplicates", filename) {
-		return FileOperation{
-			Type: OpSkip,
-		}, nil
+	for _, fp := range filepaths {
+		fullPath := filepath.Join(fp.FullDir, fp.Filename)
+
+		if fullPath == filepath.Join(fp.BaseDir, "duplicates", fp.Filename) {
+			ops = append(ops, FileOperation{
+				Type: OpSkip,
+			})
+			continue
+		}
+
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			return nil, err
+		}
+
+		checksum := fmt.Sprintf("%x", sha256.Sum256(data))
+
+		if _, exists := d.hashes[checksum]; !exists {
+			d.hashes[checksum] = fullPath
+			ops = append(ops, FileOperation{Type: OpSkip})
+			continue
+		}
+
+		ops = append(ops, FileOperation{
+			Type:       OpMove,
+			SourcePath: fullPath,
+			DestPath:   filepath.Join(fp.BaseDir, "duplicates", fp.Filename),
+			Filename:   fp.Filename,
+			Size:       fp.Size,
+		})
 	}
 
-	data, err := os.ReadFile(fullPath)
-	if err != nil {
-		return FileOperation{Type: OpSkip}, err
-	}
-
-	checksum := fmt.Sprintf("%x", sha256.Sum256(data))
-	if _, exists := d.hashes[checksum]; !exists {
-		d.hashes[checksum] = fullPath
-		return FileOperation{
-			Type: OpSkip}, nil
-	}
-
-	return FileOperation{
-		Type:       OpMove,
-		SourcePath: fullPath,
-		DestPath:   filepath.Join(BaseDir, "duplicates", filename),
-		Filename:   filename,
-		Size:       size,
-	}, nil
+	return ops, nil
 }
