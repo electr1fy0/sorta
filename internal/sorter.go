@@ -85,52 +85,80 @@ func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
 		return nil, fmt.Errorf("failed to marshal filenames: %w", err)
 	}
 
-	prompt := `You are an intelligent file renaming engine. Your goal is to transform filenames to be concise, meaningful, and machine-friendly (snake_case).
+	prompt := `You are an intelligent file renaming engine. Your goal is to transform filenames to be concise, meaningful, and machine-friendly using Title_Snake_Case.
 
 Input: A JSON array of filename strings.
 Output: A JSON array of transformed filename strings.
 
-### CRITICAL OUTPUT RULES (Zero Tolerance):
-1. Return **ONLY** the raw JSON array. No Markdown, no code blocks, no explanations.
+### CRITICAL OUTPUT RULES:
+1. Return **ONLY** the raw JSON array. No Markdown.
 2. The output array MUST have the exact same number of elements as the input.
-3. **Uniqueness is Mandatory:** If two files reduce to the same name, you MUST append a discriminator (e.g., "_v1", "_v2", or keep the original number).
+3. **Uniqueness:** If two files reduce to the same name, append a discriminator (e.g., "_v1").
 
-### TRANSFORMATION LOGIC (Execute in Order):
+### RENAMING LOGIC:
 
-1. **Standardization:**
-   - Convert to 'snake_case' (lowercase, underscores).
-   - Replace spaces, hyphens, and dots (except the extension dot) with underscores.
-   - Remove special characters like parentheses '()'.
+1. **Standardization (Title Case):**
+   - **Format:** Capitalize the first letter of every significant word (Title_Case).
+   - **Separators:** Use underscores only. Replace spaces, hyphens, and dots with underscores.
+   - **CamelCase:** Split attached words (e.g., "MyProjectFile" -> "My_Project_File").
+   - **Acronyms:** Keep technical terms in ALL CAPS (e.g., "OS", "DSA", "TCP", "AI", "DBMS", "LAB", "ID", "API", "JSON").
 
-2. **Semantic Cleaning (The "Human" Rule):**
-   - **Remove Clutter:** Strip generic words that add no value: "copy", "final", "draft", "new", "converted", "document", "file".
-   - **Remove Redundancy:** If a word (like a year, subject, or name) appears multiple times in the string, keep only one instance.
-   - **Focus on Purpose:** Ensure the filename reflects *what* the file is. If the name is extremely long, shorten it to the 3-4 most significant keywords.
+2. **Smart Shortening (The "Key-Bit" Rule):**
+   - **Identify Value:** If a filename is too long (>6 words), ignore generic hierarchy (e.g., "Department of...", "Chapter 3...", "Part 2...").
+   - **Keep Specifics:** Extract and keep only the **unique subject**, **topic**, or **specific noun** that describes the file content.
+   - **Remove Clutter:** "Copy of", "final", "draft", "new", "document", "file", "download", "backup" (unless it's the only word).
+   - **Remove Redundancy:** If a word (year/subject) repeats, keep only one.
 
-3. **Academic & Technical Abbreviations (Strict Mapping):**
-   - "Assignment" -> "asn"
-   - "Experiment" / "Exp" -> "exp"
-   - "Laboratory" / "Lab" -> "lab"
-   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "s5")
-   - "Project" -> "proj"
-   - "Syllabus" -> "syl"
-   - "Question Paper" / "QP" -> "qp"
-   - "Introduction" -> "intro"
+3. **Strict Abbreviations (Use These Exact Forms):**
+   - "Assignment" -> "Asn"
+   - "Experiment" -> "Exp"
+   - "Laboratory" -> "Lab"
+   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "S5")
+   - "Project" -> "Proj"
+   - "Syllabus" -> "Syl"
+   - "Question Paper" -> "QP"
+   - "Introduction" -> "Intro"
+   - "Manual" -> "Man"
    - Years: "2024-2025" -> "24_25", "2024" -> "24"
 
 4. **Safety:**
    - NEVER change the file extension.
 
-### FEW-SHOT EXAMPLES (Mimic this style):
+### EXAMPLES (Study these patterns):
 
-Input:  ["Copy of Operating Systems Sem 5 Final Notes (2024).pdf", "Data_Structures_Assignment_1_FINAL_v2.docx"]
-Output: ["os_s5_notes_24.pdf", "dsa_asn_1_v2.docx"]
+// 1. Standard Academic (Title Case + Acronyms)
+Input:  ["Copy of Operating Systems Sem 5 Final Notes (2024).pdf", "data_structures_assignment_1_FINAL_v2.docx"]
+Output: ["OS_s5_Notes_24.pdf", "DSA_Asn_1_v2.docx"]
 
-Input:  ["project_report_final_final_print.pdf", "my_resume_engineering_2025_updated.pdf"]
-Output: ["proj_report_print.pdf", "resume_eng_25.pdf"]
+// 2. Intelligent Shortening (Picking the Important Bits)
+Input:  ["Vellore_Institute_of_Technology_Fall_2025_Network_Security_Course_Plan.docx"]
+Output: ["Network_Security_Course_Plan_25.docx"]  // Dropped Uni name, kept Subject
 
-Input:  ["lab_experiment_1.txt", "lab_experiment_2.txt"]
-Output: ["lab_exp_1.txt", "lab_exp_2.txt"]
+Input:  ["Introduction_to_Computer_Science_Part_3_Advanced_Data_Structures_and_Algorithms_Notes.pdf"]
+Output: ["Advanced_DSA_Notes.pdf"] // Dropped generic intro, kept specific topic
+
+Input:  ["Department_of_Mechanical_Engineering_Fluid_Mechanics_Lab_Manual_v2.pdf"]
+Output: ["Fluid_Mechanics_Lab_Man_v2.pdf"]
+
+// 3. Messy Separators & CamelCase
+Input:  ["MyProjectFile_Final_v2.java", "web-development-lab-experiment-1.html", "Abstract_Algebra---Notes.pdf"]
+Output: ["My_Proj_File_v2.java", "Web_Dev_Lab_Exp_1.html", "Abstract_Algebra_Notes.pdf"]
+
+// 4. Dates & Receipts
+Input:  ["Invoice_2024-12-01_paid.pdf", "receipt jan 24 grocery.jpeg", "Statement 01012025.pdf"]
+Output: ["Invoice_2024_12_01_Paid.pdf", "Receipt_Jan_24_Grocery.jpeg", "Statement_01_01_2025.pdf"]
+
+// 5. Developer & Technical Files
+Input:  ["main_backup_copy.go", "docker-compose-dev.yml", "API_ENDPOINT_SPEC_v3.json"]
+Output: ["Main_Backup.go", "Docker_Compose_Dev.yml", "API_Endpoint_Spec_v3.json"]
+
+// 6. Messy "Downloads" Garbage
+Input:  ["scan_29384_Contract_Signed.pdf", "Microsoft Word - Resume_John_Doe_2025.docx"]
+Output: ["Contract_Signed.pdf", "Resume_John_Doe_25.docx"]
+
+// 7. Versioning Conflicts
+Input:  ["lab_experiment_1.txt", "lab_experiment_1 (1).txt", "lab_experiment_1 (2).txt"]
+Output: ["Lab_Exp_1.txt", "Lab_Exp_1_v1.txt", "Lab_Exp_1_v2.txt"]
 
 PAYLOAD:`
 
