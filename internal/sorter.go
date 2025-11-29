@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -183,6 +184,22 @@ Output:["MOOC_File_FAT-1.pdf"]
 
 PAYLOAD:`
 
+	home, _ := os.UserHomeDir()
+	promptPath := filepath.Join(home, ".sorta/prompt")
+	promptFile, err := os.Open(promptPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			os.WriteFile(promptPath, []byte(prompt), 0644)
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+
+	filePromptBytes, _ := io.ReadAll(promptFile)
+	if string(filePromptBytes) != "" {
+		prompt = string(filePromptBytes)
+	}
+
+	fmt.Println(prompt)
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, nil)
 	if err != nil {
