@@ -101,12 +101,13 @@ Uses Gemini to sanitize filenames into a concise, readable format (`snake_case`)
 
 **Features:**
 
-  - **Standardizes:** `Operating Systems Sem 5.pdf` → `os_s5_notes.pdf`
-  - **Cleans:** Removes clutter ("copy", "final", "v2").
-  - **Smart Formatting:** Preserves acronyms (DSA, TCP) while fixing inconsistencies.
-  - **Safety:** Ensures uniqueness and never changes file extensions.
+- Standardizes names like “Operating Systems Sem 5.pdf” to “OS_S5_notes.pdf”
+- Removes clutter such as copy, final, v2
+- Keeps important acronyms like DSA, TCP, OS
+- Strips off metadata
+- Removes redundancy and shortens verbose language
 
-*Requires `GEMINI_API_KEY` environment variable set.*
+  _Requires `GEMINI_API_KEY` environment variable set._
 
 ### Find duplicates
 
@@ -136,13 +137,13 @@ Or manually edit `~/.sorta-config` to adjust folder names, keywords, and match p
 
 ## Flags
 
-  - `--dry` - Preview changes without moving files
-  - `--interactive` - Confirm before each move
+- `--dry` - Preview changes without moving files
+- `--interactive` - Confirm before each move
 
 ## Notes
 
-  - Moves files, doesn't copy
-  - Ignores hidden files (starting with `.`)
-  - Auto-cleans empty directories
-  - Creates destination folders as needed
-  - Prompts to undo after sorting
+- Moves files, doesn't copy
+- Ignores hidden files (starting with `.`)
+- Auto-cleans empty directories
+- Creates destination folders as needed
+- Prompts to undo after sorting

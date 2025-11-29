@@ -92,35 +92,52 @@ Input: A JSON array of filename strings.
 Output: A JSON array of transformed filename strings.
 
 ### CRITICAL OUTPUT RULES:
-1. Return **ONLY** the raw JSON array. No Markdown.
+1. Return **ONLY** the raw JSON array. No Markdown, no prose, no explanation, no code fences.
 2. The output array MUST have the exact same number of elements as the input.
-3. **Uniqueness:** If two files reduce to the same name, append a discriminator (e.g., "_v1").
+3. Preserve array order exactly. Do not sort or reorder entries.
+4. **Uniqueness:** If two transformed names collide, append "_v1", "_v2", ... to the later items. Keep any original version markers; append only if collision still remains.
+5. Never modify or remove the file extension. Copy it exactly from input.
 
 ### RENAMING LOGIC:
+Apply the following rules strictly in the order they appear. Do not skip steps or reorder steps.
+All transformations must be derived strictly from the input tokens. Do not invent, guess, or infer content.
 
 1. **Standardization (Title Case):**
    - **Format:** Capitalize the first letter of every significant word (Title_Case).
+   - Title Case means: Capitalize only the first letter of each word, keep the rest lowercase (unless acronym/abbreviation rules override).
    - **Separators:** Use underscores only. Replace spaces, hyphens, and dots with underscores.
-   - **CamelCase:** Split attached words (e.g., "MyProjectFile" -> "My_Project_File").
-   - **Acronyms:** Keep technical terms in ALL CAPS (e.g., "OS", "DSA", "TCP", "AI", "DBMS", "LAB", "ID", "API", "JSON").
+   - **CamelCase:** Split attached words (e.g., "MyProjectFile" -> "My_Project_File"). Apply camelCase splitting before any other replacement steps.
+   - **Acronyms:** If a token (match whole token, case-insensitive) equals any of: OS, DSA, TCP, AI, DBMS, LAB, ID, API, JSON — output it in ALL CAPS.
+     Perform acronym normalization **before** applying Title Case. Do not transform these acronyms when they appear as substrings inside larger words.
 
 2. **Smart Shortening (The "Key-Bit" Rule):**
-   - **Identify Value:** If a filename is too long (>6 words), ignore generic hierarchy (e.g., "Department of...", "Chapter 3...", "Part 2...").
-   - **Keep Specifics:** Extract and keep only the **unique subject**, **topic**, or **specific noun** that describes the file content.
-   - **Remove Clutter:** "Copy of", "final", "draft", "new", "document", "file", "download", "backup" (unless it's the only word).
-   - **Remove Redundancy:** If a word (year/subject) repeats, keep only one.
+	- **Identify Value:** If the filename contains more than 6 meaningful tokens, remove generic or
+	  structural prefixes ("Department", "University", "Institute", "College", "School",
+	  "Faculty", "Part", "Chapter", "Section", "Introduction") from the beginning until a
+	  subject/topic/technical token appears.
+	- **Keep Specifics:** Extract and keep only the **unique subject**, **topic**, or **specific noun** that describes the file content.
+	- **Remove Clutter:** Remove tokens such as "Copy", "Copy of", "copy_of", "final", "draft",
+	    "new", "document", "file", "download", "backup", "(1)", "(2)", "(copy)" and
+	    other software-generated prefixes (e.g. "Microsoft Word -").
+	- Remove numeric tokens of length ≥6 unless they represent a valid date (YYYYMMDD or YYYY-MM-DD).
+	- **Remove Redundancy:** If a word (year/subject) repeats, keep only one.
+	- After applying abbreviations, remove any immediate repeated tokens (e.g., "DSA_DSA" → "DSA").
+	- **Preserve Semester Tokens:** If a token contains "SEM" or matches patterns like
+	  FALLSEM*, WINTERSEM*, FALL_S*, WINTER_S*, or Sem/sem + digits, do NOT remove it during shortening.
+	  Instead, compress it into the official semester form (e.g., FALLSEM2025-26 → F25-26,
+	  WINTERSEM2025-26 → W25-26, sem_05 → S5). Never drop these tokens entirely.
 
 3. **Strict Abbreviations (Use These Exact Forms):**
    - "Assignment" -> "Asn"
    - "Experiment" -> "Exp"
    - "Laboratory" -> "Lab"
-   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "S5", "FALLSEM2025-26" -> "F25-26", "Fall_s25-26" -> "F25-26")
+   - "Semester" / "Sem" -> "S" (e.g., "sem_05" -> "S5", "FALLSEM2025-26" -> "F25-26", "Fall_s25-26" -> "F25-26", "WINTERSEM2025-26"->"W25-26")
    - "Project" -> "Proj"
    - "Syllabus" -> "Syl"
    - "Question Paper" -> "QP"
    - "Introduction" -> "Intro"
-   - Years: "2024-2025" -> "2024_25", "2024" -> "24"
-
+   - Years: Convert 4-digit years in the 2000–2099 range to two digits ("2024" → "24").
+     For ranges ("2024-2025"), output "24_25". Keep original ordering.
 4. **Safety:**
    - NEVER change the file extension.
 
