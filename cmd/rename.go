@@ -14,7 +14,7 @@ var renameCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return runSort(dir, internal.NewRenamer())
+		return runSort(dir, internal.NewRenamer(), nil)
 	},
 }
 

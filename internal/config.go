@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-var blacklistedFolders = make([]string, 0, 10)
-
 func ParseConfig(configPath string) (*ConfigData, error) {
 	file, err := os.Open(configPath)
 	if err != nil {
@@ -22,8 +20,9 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 	}
 	defer file.Close()
 	var configData ConfigData
-	configData.foldernames = make([]string, 0, 50)
-	configData.keywords = make([][]string, 0, 50)
+	configData.Foldernames = make([]string, 0, 50)
+	configData.Keywords = make([][]string, 0, 50)
+	configData.Blacklist = make([]string, 0, 10)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -33,7 +32,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 		}
 
 		if cleanedLine, found := strings.CutPrefix(line, "!"); found {
-			blacklistedFolders = append(blacklistedFolders, strings.TrimSpace(cleanedLine))
+			configData.Blacklist = append(configData.Blacklist, strings.TrimSpace(cleanedLine))
 			continue
 		}
 		parts := strings.Split(line, "=")
@@ -46,15 +45,15 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 		for i, k := range keywords {
 			keywords[i] = strings.TrimSpace(k)
 		}
-		configData.foldernames = append(configData.foldernames, folder)
-		configData.keywords = append(configData.keywords, keywords)
+		configData.Foldernames = append(configData.Foldernames, folder)
+		configData.Keywords = append(configData.Keywords, keywords)
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	if len(configData.foldernames) == 0 {
+	if len(configData.Foldernames) == 0 {
 		return nil, fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
 	}
 
@@ -97,8 +96,8 @@ func createConfig(path string) error {
 func categorize(configData ConfigData, filename, fileExt string) string {
 	var hasStar bool
 	var fallback string
-	for i, foldername := range configData.foldernames {
-		for _, keyword := range configData.keywords[i] {
+	for i, foldername := range configData.Foldernames {
+		for _, keyword := range configData.Keywords[i] {
 			if keyword == "*" {
 				hasStar = true
 				fallback = foldername

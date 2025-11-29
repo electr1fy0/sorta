@@ -15,7 +15,7 @@ var duplCmd = &cobra.Command{
 			return err
 		}
 
-		return runSort(dir, internal.NewDuplicateFinder())
+		return runSort(dir, internal.NewDuplicateFinder(), nil)
 	},
 }
 

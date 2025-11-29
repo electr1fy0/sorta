@@ -39,7 +39,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error creating config sorter: %w", err)
 		}
-		return runSort(dir, configSorter)
+		return runSort(dir, configSorter, configSorter.GetBlacklist())
 	},
 }
 

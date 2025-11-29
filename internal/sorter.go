@@ -76,6 +76,10 @@ func (s *ConfigSorter) Sort(filePaths []FilePath) ([]FileOperation, error) {
 	return ops, nil
 }
 
+func (s *ConfigSorter) GetBlacklist() []string {
+	return s.configData.Blacklist
+}
+
 func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
 	filenames := make([]string, len(filePaths))
 	for i, f := range filePaths {
@@ -198,7 +202,6 @@ PAYLOAD:`
 		prompt = string(filePromptBytes)
 	}
 
-	fmt.Println(prompt)
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, nil)
 	if err != nil {

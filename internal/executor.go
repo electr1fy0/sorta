@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-var Operations []FileOperation
-
 func (e *Executor) RevertExecute(op FileOperation) error {
 	srcDir := filepath.Dir(op.SourcePath)
 
@@ -35,7 +33,7 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		}
 		srcDir := filepath.Dir(op.SourcePath)
 		srcDirName := filepath.Base(srcDir)
-		if slices.Contains(blacklistedFolders, srcDirName) {
+		if slices.Contains(e.Blacklist, srcDirName) {
 			return false, nil
 		}
 		reader := bufio.NewReader(os.Stdin)
@@ -63,19 +61,19 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 			fmt.Println("[?] Undo? [y/n]")
 			undoInput, err := reader.ReadString('\n')
 			if err != nil {
-				Operations = append(Operations, op)
+				e.Operations = append(e.Operations, op)
 				return true, fmt.Errorf("error reading undo input: %w", err)
 			}
 			if strings.TrimSpace(undoInput) == "y" {
 				if err := e.RevertExecute(op); err != nil {
-					Operations = append(Operations, op)
+					e.Operations = append(e.Operations, op)
 					return true, fmt.Errorf("failed to undo move: %w", err)
 				}
 				return false, nil
 			}
 		}
 
-		Operations = append(Operations, op)
+		e.Operations = append(e.Operations, op)
 		return true, nil
 
 	case OpDelete:

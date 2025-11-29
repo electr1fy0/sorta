@@ -41,10 +41,15 @@ func validateDir(path string) (string, error) {
 	return path, nil
 }
 
-func runSort(dir string, sorter internal.Sorter) error {
+func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 	fmt.Printf("%sDir:%s %s\n", ansiCyan, ansiReset, dir)
 
-	executor := &internal.Executor{DryRun: dryRun, Interactive: interactive}
+	executor := &internal.Executor{
+		DryRun:      dryRun,
+		Interactive: interactive,
+		Blacklist:   blacklist,
+		Operations:  make([]internal.FileOperation, 0),
+	}
 	reporter := &internal.Reporter{DryRun: dryRun}
 
 	res, err := internal.FilterFiles(dir, sorter, executor, reporter)
@@ -52,7 +57,7 @@ func runSort(dir string, sorter internal.Sorter) error {
 		return fmt.Errorf("failed to filter files: %w", err)
 	}
 
-	if err := Undo(); err != nil {
+	if err := Undo(executor); err != nil {
 		return err
 	}
 	res.PrintSummary()
@@ -60,14 +65,12 @@ func runSort(dir string, sorter internal.Sorter) error {
 	return nil
 }
 
-var undoExecutor = internal.Executor{Interactive: interactive, DryRun: dryRun}
-
-func Undo() error {
-	if undoExecutor.Interactive || dryRun {
+func Undo(executor *internal.Executor) error {
+	if executor.Interactive || dryRun {
 		return nil
 	}
 
-	if len(internal.Operations) == 0 {
+	if len(executor.Operations) == 0 {
 		fmt.Println("No operations to undo.")
 		return nil
 	}
@@ -80,8 +83,8 @@ func Undo() error {
 	}
 
 	if strings.TrimSpace(confirm) == "y" {
-		for _, op := range internal.Operations {
-			if err := undoExecutor.RevertExecute(op); err != nil {
+		for _, op := range executor.Operations {
+			if err := executor.RevertExecute(op); err != nil {
 				return fmt.Errorf("error reverting operation: %w", err)
 			}
 		}

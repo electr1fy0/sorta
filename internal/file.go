@@ -40,11 +40,6 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		parentDir := filepath.Dir(path)
 
 		filePaths = append(filePaths, FilePath{dir, parentDir, d.Name(), size})
-		// fileOp, err := sorter.Sort(dir, parentDir, d.Name(), size)
-		// if err != nil {
-		// 	return err
-		// }
-		// operations = append(operations, fileOp)
 		return nil
 	})
 
@@ -56,8 +51,12 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 
 	for _, op := range operations {
 		moved, err := executor.Execute(op)
+		if moved || err != nil {
+			reporter.Report(op, err)
+		}
+
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error executing operation for %s: %v\n", op.Filename, err)
+			result.Errors = append(result.Errors, fmt.Errorf("%s: %w", op.Filename, err))
 			continue
 		}
 		if moved {

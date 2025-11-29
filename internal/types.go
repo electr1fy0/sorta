@@ -8,8 +8,9 @@ const (
 )
 
 type ConfigData struct {
-	foldernames []string
-	keywords    [][]string
+	Foldernames []string
+	Keywords    [][]string
+	Blacklist   []string
 }
 
 type Sorter interface {
@@ -35,6 +36,8 @@ type FileOperation struct {
 type Executor struct {
 	DryRun      bool
 	Interactive bool
+	Operations  []FileOperation
+	Blacklist   []string
 }
 
 type ExtensionSorter struct {
