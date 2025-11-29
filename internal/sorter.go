@@ -113,7 +113,7 @@ Output: A JSON array of transformed filename strings.
    - "Assignment" -> "Asn"
    - "Experiment" -> "Exp"
    - "Laboratory" -> "Lab"
-   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "S5")
+   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "S5", "FALLSEM2025-26" -> "F25-26")
    - "Project" -> "Proj"
    - "Syllabus" -> "Syl"
    - "Question Paper" -> "QP"
@@ -159,6 +159,10 @@ Output: ["Contract_Signed.pdf", "Resume_John_Doe_25.docx"]
 // 7. Versioning Conflicts
 Input:  ["lab_experiment_1.txt", "lab_experiment_1 (1).txt", "lab_experiment_1 (2).txt"]
 Output: ["Lab_Exp_1.txt", "Lab_Exp_1_v1.txt", "Lab_Exp_1_v2.txt"]
+
+// 8. Unnecessary metadata
+Input: ["Mooc_File_VL374892378278273_FAT-1"]
+Output:["MOOC_File_FAT-1.pdf"]
 
 PAYLOAD:`
 
