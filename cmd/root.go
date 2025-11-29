@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
@@ -11,6 +13,7 @@ import (
 var (
 	dryRun      bool
 	interactive bool
+	configPath  string
 )
 
 var rootCmd = &cobra.Command{
@@ -23,7 +26,16 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		configSorter, err := internal.NewConfigSorter()
+
+		if strings.HasPrefix(configPath, "~") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("cannot determine home directory: %w", err)
+			}
+			configPath = filepath.Join(home, configPath[1:])
+		}
+
+		configSorter, err := internal.NewConfigSorter(configPath)
 		if err != nil {
 			return fmt.Errorf("error creating config sorter: %w", err)
 		}
@@ -41,4 +53,5 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry", false, "Do a dry run without making changes")
 	rootCmd.PersistentFlags().BoolVar(&interactive, "interactive", false, "Interactive mode")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config", "~/.sorta/config", "Path to config file")
 }

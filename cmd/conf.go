@@ -16,7 +16,7 @@ var configCmd = &cobra.Command{
 
 var configAddCmd = &cobra.Command{
 	Use:   "add <foldername> <keyword1> <keyword2>...",
-	Short: "Add new folder-to-keyword rule to .sorta-config",
+	Short: "Add new folder-to-keyword rule to the config file",
 	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		foldername := args[0]
@@ -28,7 +28,7 @@ var configAddCmd = &cobra.Command{
 
 var configRemoveCmd = &cobra.Command{
 	Use:   "remove <foldername>",
-	Short: "Remove a folder-to-keyword rule from .sorta-config",
+	Short: "Remove a folder-to-keyword rule from the config file",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keywords := args[0:]
@@ -37,23 +37,25 @@ var configRemoveCmd = &cobra.Command{
 }
 
 func manageConfig(foldername, operation string, keywords []string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("error getting home directory: %w", err)
+	if strings.HasPrefix(configPath, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("cannot determine home directory: %w", err)
+		}
+		configPath = filepath.Join(home, configPath[1:])
 	}
-	configPath := filepath.Join(homeDir, ".sorta-config")
 
 	switch operation {
 	case "add":
 		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			return fmt.Errorf("error opening .sorta-config: %w", err)
+			return fmt.Errorf("error opening config file: %w", err)
 		}
 		defer f.Close()
 		keyLine := strings.Join(keywords, ", ")
 		line := fmt.Sprintf("%s = %s\n", foldername, keyLine)
 		if _, err := f.WriteString(line); err != nil {
-			return fmt.Errorf("error writing to .sorta-config: %w", err)
+			return fmt.Errorf("error writing to config file: %w", err)
 		}
 		fmt.Printf("Added rule: %s=%s\n", foldername, keyLine)
 		return nil
@@ -61,9 +63,9 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf(".sorta-config not found, nothing to remove")
+				return fmt.Errorf("config file not found, nothing to remove")
 			}
-			return fmt.Errorf("error reading .sorta-config: %w", err)
+			return fmt.Errorf("error reading config file: %w", err)
 		}
 
 		lines := strings.Split(string(data), "\n")
@@ -84,7 +86,7 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		}
 
 		if err := os.WriteFile(configPath, []byte(sb.String()), 0600); err != nil {
-			return fmt.Errorf("error writing updated .sorta-config: %w", err)
+			return fmt.Errorf("error writing updated config file: %w", err)
 		}
 		fmt.Printf("Removed rule for foldername: %s\n", keywords[0])
 		return nil

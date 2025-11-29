@@ -4,19 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
 var blacklistedFolders = make([]string, 0, 10)
 
-func ParseConfig() (*ConfigData, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot determine home directory: %w", err)
-	}
-
-	configPath := filepath.Join(home, ".sorta", "config")
+func ParseConfig(configPath string) (*ConfigData, error) {
 	file, err := os.Open(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {

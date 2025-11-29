@@ -44,8 +44,8 @@ func (s *ExtensionSorter) Sort(BaseDir, dir, filename string, size int64) (FileO
 	return FileOperation{Type: OpSkip}, nil
 }
 
-func NewConfigSorter() (*ConfigSorter, error) {
-	confData, err := ParseConfig()
+func NewConfigSorter(configPath string) (*ConfigSorter, error) {
+	confData, err := ParseConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +137,7 @@ All transformations must be derived strictly from the input tokens. Do not inven
    - "Syllabus" -> "Syl"
    - "Question Paper" -> "QP"
    - "Introduction" -> "Intro"
-   - Years: Convert 4-digit years in the 2000–2099 range to two digits ("2024" → "24").
-     For ranges ("2024-2025"), output "24_25". Keep original ordering.
+   - Years: For ranges ("2024-2025"), output "2024_25". Keep original ordering.
 4. **Safety:**
    - NEVER change the file extension.
 
