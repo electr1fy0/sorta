@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"google.golang.org/genai"
 )
@@ -113,13 +114,12 @@ Output: A JSON array of transformed filename strings.
    - "Assignment" -> "Asn"
    - "Experiment" -> "Exp"
    - "Laboratory" -> "Lab"
-   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "S5", "FALLSEM2025-26" -> "F25-26")
+   - "Semester" / "Sem" -> "s" (e.g., "sem_05" -> "S5", "FALLSEM2025-26" -> "F25-26", "Fall_s25-26" -> "F25-26")
    - "Project" -> "Proj"
    - "Syllabus" -> "Syl"
    - "Question Paper" -> "QP"
    - "Introduction" -> "Intro"
-   - "Manual" -> "Man"
-   - Years: "2024-2025" -> "24_25", "2024" -> "24"
+   - Years: "2024-2025" -> "2024_25", "2024" -> "24"
 
 4. **Safety:**
    - NEVER change the file extension.
@@ -171,8 +171,28 @@ PAYLOAD:`
 	if err != nil {
 		return nil, fmt.Errorf("failed to create genai client: %w", err)
 	}
+	status := make(chan struct{})
+	go func() {
+		dots := []string{"", ".", "..", "..."}
+		i := 0
+
+		for {
+			select {
+			case <-status:
+				return
+
+			default:
+				fmt.Printf("\rConversing with Gemini%s     ", dots[i])
+				i = (i + 1) % len(dots)
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
+	}()
 
 	resp, err := client.Models.GenerateContent(ctx, "gemini-2.5-flash-lite", genai.Text(prompt+"\n"+string(marshalledPayload)), nil)
+	close(status)
+	fmt.Print("\r                             \n")
+
 	if err != nil {
 		return nil, fmt.Errorf("gemini request failed: %w", err)
 	}
