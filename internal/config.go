@@ -82,6 +82,8 @@ func createConfig(path string) error {
 // - Lines starting with '//' are comments and ignored.
 // - Add a ! followed by a foldername to blacklist the folder from being touched by sorta
 // - * as a keyword matches all filenames which don't contain the other keywords
+// - . as a foldernames means the root folder that you passed to sorta.
+// - To flatten the subfolder tree, use . = *
 //
 // Example:
 //
