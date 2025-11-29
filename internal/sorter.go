@@ -185,7 +185,7 @@ Output:["MOOC_File_FAT-1.pdf"]
 PAYLOAD:`
 
 	home, _ := os.UserHomeDir()
-	promptPath := filepath.Join(home, ".sorta/prompt")
+	promptPath := filepath.Join(home, ".sorta", "prompt")
 	promptFile, err := os.Open(promptPath)
 	if err != nil {
 		if os.IsNotExist(err) {

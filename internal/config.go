@@ -16,7 +16,7 @@ func ParseConfig() (*ConfigData, error) {
 		return nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	configPath := filepath.Join(home, ".sorta/config")
+	configPath := filepath.Join(home, ".sorta", "config")
 	file, err := os.Open(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
