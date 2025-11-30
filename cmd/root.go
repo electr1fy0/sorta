@@ -35,7 +35,7 @@ var rootCmd = &cobra.Command{
 			configPath = filepath.Join(home, configPath[1:])
 		}
 
-		configSorter, err := internal.NewConfigSorter(configPath)
+		configSorter, err := internal.NewConfigSorter(dir, configPath)
 		if err != nil {
 			return fmt.Errorf("error creating config sorter: %w", err)
 		}

@@ -44,11 +44,33 @@ func (s *ExtensionSorter) Sort(BaseDir, dir, filename string, size int64) (FileO
 	return FileOperation{Type: OpSkip}, nil
 }
 
-func NewConfigSorter(configPath string) (*ConfigSorter, error) {
-	confData, err := ParseConfig(configPath)
+func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("error determining home directory: %w", err)
+	}
+	defaultPath := filepath.Join(home, ".sorta", "config")
+	var localPath string
+	if configPath == defaultPath {
+		localPath = filepath.Join(folderPath, ".sorta", "config")
+	}
+
+	var confData *ConfigData
+	_, err = os.Open(localPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			confData, err = ParseConfig(configPath)
+		} else {
+			return nil, err
+		}
+	} else {
+		confData, err = ParseConfig(localPath)
+	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &ConfigSorter{
 		configData: confData,
 	}, nil
