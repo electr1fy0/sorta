@@ -129,6 +129,14 @@ sorta lrg <directory>
 
 Shows top 5 largest files.
 
+### Initialize directory
+
+```bash
+sorta init <directory>
+```
+
+Creates a local `.sorta/` folder inside the target directory with copies of your default config and prompt. This allows per-directory configuration.
+
 ### Manage config
 
 ```bash
@@ -143,6 +151,7 @@ Users may also manually edit the config at the same path.
 
 - `--dry` - Preview changes without moving files
 - `--interactive` - Confirm before each move
+- `--config` - Path to config file (default `~/.sorta/config`)
 
 ## Notes
 
