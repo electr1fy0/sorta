@@ -15,9 +15,9 @@ var configCmd = &cobra.Command{
 }
 
 var configAddCmd = &cobra.Command{
-	Use:   "add <foldername> <keyword1> <keyword2>...",
+	Use:   `add <foldername> "<keyword1>, <keyword2>..."`,
 	Short: "Add new folder-to-keyword rule to the config file",
-	Args:  cobra.MinimumNArgs(2),
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		foldername := args[0]
 		keywordsStr := args[1]

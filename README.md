@@ -140,7 +140,7 @@ Creates a local `.sorta/` folder inside the target directory with copies of your
 ### Manage config
 
 ```bash
-sorta config add <foldername> <keyword1> <keyword2>...
+sorta config add <foldername> "<keyword1>, <keyword2>..."
 sorta config remove <foldername>
 ```
 
