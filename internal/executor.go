@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,14 +12,28 @@ import (
 
 func (e *Executor) RevertExecute(op FileOperation) error {
 	srcDir := filepath.Dir(op.SourcePath)
+	op.DestPath, op.SourcePath = op.SourcePath, op.DestPath
 
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
-	if err := os.Rename(op.DestPath, op.SourcePath); err != nil {
+	if err := os.Rename(op.SourcePath, op.DestPath); err != nil {
 		return fmt.Errorf("failed to revert operation: %w", err)
 	}
+	logHistory(op)
 	return nil
+}
+
+func logHistory(op FileOperation) {
+	data, _ := json.Marshal(op)
+	data = append(data, '\n')
+
+	home, _ := os.UserHomeDir()
+	logPath := filepath.Join(home, ".sorta", "history.log")
+	f, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f.Write(data)
+
+	defer f.Close()
 }
 
 func (e *Executor) Execute(op FileOperation) (bool, error) {
@@ -57,6 +72,7 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 			return false, fmt.Errorf("failed to move file: %w", err)
 		}
 
+		logHistory(op)
 		if e.Interactive {
 			fmt.Println("[?] Undo? [y/n]")
 			undoInput, err := reader.ReadString('\n')
