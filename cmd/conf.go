@@ -20,8 +20,9 @@ var configAddCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		foldername := args[0]
-		keywords := args[1:]
-
+		keywordsStr := args[1]
+		keywords := strings.Split(keywordsStr, ",")
+		fmt.Println(args, len(args))
 		return manageConfig(foldername, "add", keywords)
 	},
 }
