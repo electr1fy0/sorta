@@ -25,6 +25,13 @@ const (
 	OpSkip
 )
 
+type Transaction struct {
+	Operations []FileOperation
+	ID         string
+	Root       string
+	Type       TransactionType
+}
+
 type FileOperation struct {
 	Type       OperationType
 	SourcePath string

@@ -1,11 +1,13 @@
 package internal
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 func NewExtensionSorter() *ExtensionSorter {
@@ -69,9 +71,22 @@ func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
 	}, nil
 }
 
+func logHistory(t Transaction) {
+	data, _ := json.Marshal(t)
+	data = append(data, '\n')
+
+	home, _ := os.UserHomeDir()
+	logPath := filepath.Join(home, ".sorta", "history.log")
+	f, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f.Write(data)
+	LogCnt++
+	defer f.Close()
+}
+
+var transaction Transaction
+
 func (s *ConfigSorter) Sort(filePaths []FilePath) ([]FileOperation, error) {
 	ops := make([]FileOperation, 0, 10)
-
 	for _, filePath := range filePaths {
 		srcPath := filepath.Join(filePath.FullDir, filePath.Filename)
 		folder := categorize(*s.configData, filePath.Filename, filepath.Ext(srcPath))
@@ -88,7 +103,62 @@ func (s *ConfigSorter) Sort(filePaths []FilePath) ([]FileOperation, error) {
 			})
 		}
 	}
+
+	transaction.ID = time.Now().String()
+	transaction.Root = filePaths[0].BaseDir
+	transaction.Operations = ops
+	logHistory(transaction)
 	return ops, nil
+}
+
+func readHistory(root string) (Transaction, error) {
+	home, err := os.UserHomeDir()
+	historyPath := filepath.Join(home, ".sorta", "history.log")
+
+	data, err := os.ReadFile(historyPath)
+	var undoT Transaction
+	lines := strings.Split(string(data), "\n")
+
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		err = json.Unmarshal([]byte(line), &undoT)
+		if undoT.Root == root {
+			if undoT.Type == TUndo {
+				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
+			}
+
+			return undoT, err
+		}
+	}
+	return Transaction{}, err
+}
+
+type TransactionType int
+
+const (
+	TAction TransactionType = iota
+	TUndo
+)
+
+func Undo(path string) error {
+	if !filepath.IsAbs(path) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		path = filepath.Join(home, path)
+	}
+	t, err := readHistory(path)
+	t.Type = TUndo
+	logHistory(t)
+
+	var executor Executor
+	for _, op := range t.Operations {
+
+		op.SourcePath, op.DestPath = op.DestPath, op.SourcePath
+		executor.Execute(op)
+	}
+	return err
 }
 
 func (s *ConfigSorter) GetBlacklist() []string {

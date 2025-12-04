@@ -9,6 +9,7 @@ func (r *SortResult) PrintSummary() {
 	fmt.Println("--------------------------------------------------")
 	fmt.Printf("  %sMoved:%s   %d\n", ansiGreen, ansiReset, r.Moved)
 	fmt.Printf("  %sSkipped:%s %d\n", ansiYellow, ansiReset, r.Skipped)
+	fmt.Printf("  %sLogged:%s %d\n", ansiYellow, ansiReset, LogCnt)
 	if len(r.Errors) > 0 {
 		fmt.Printf("  %sErrors:%s  %d\n", ansiRed, ansiReset, len(r.Errors))
 		for _, err := range r.Errors {
