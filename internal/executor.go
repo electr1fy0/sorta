@@ -9,13 +9,22 @@ import (
 	"strings"
 )
 
+var LogCnt = 0
+
+// type Transaction struct {
+// 	Operations []FileOperation
+// 	ID         string
+// 	Root       string
+// }
+
 func (e *Executor) RevertExecute(op FileOperation) error {
 	srcDir := filepath.Dir(op.SourcePath)
+	op.DestPath, op.SourcePath = op.SourcePath, op.DestPath
 
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
-	if err := os.Rename(op.DestPath, op.SourcePath); err != nil {
+	if err := os.Rename(op.SourcePath, op.DestPath); err != nil {
 		return fmt.Errorf("failed to revert operation: %w", err)
 	}
 	return nil
