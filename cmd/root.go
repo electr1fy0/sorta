@@ -10,6 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// flag logic (to be implemented)
+// 8 bits
+// 0th bit = dryRun
+// 1st bit = interactive (disabled for now)
+// 3rd bit = recurseLevel
+
+var flags uint8 = 0
+
 var (
 	dryRun      bool
 	interactive bool
@@ -54,4 +62,5 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry", false, "Do a dry run without making changes")
 	rootCmd.PersistentFlags().BoolVar(&interactive, "interactive", false, "Interactive mode")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "~/.sorta/config", "Path to config file")
+	rootCmd.PersistentFlags().IntVar(&internal.RecurseLevel, "recurselevel", -1, "Level of recursion to perform in the directory")
 }

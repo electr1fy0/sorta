@@ -11,6 +11,7 @@ import (
 )
 
 var DuplNuke = false
+var RecurseLevel int = -1
 
 type FilePath struct {
 	BaseDir  string `json:"BaseDir"`
@@ -24,6 +25,13 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 	var operations []FileOperation
 	var filePaths []FilePath
 	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		relPath, _ := filepath.Rel(dir, filepath.Dir(path))
+		relPath = filepath.Clean(relPath)
+		fmt.Println("relpath", relPath)
+		slashCnt := strings.Count(relPath, "/")
+		if RecurseLevel >= 0 && slashCnt > RecurseLevel {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -138,7 +146,7 @@ func TopLargestFiles(dir string, n int) error {
 
 	limit := min(len(entries), n)
 	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
-	for i := 0; i < limit; i++ {
+	for i := range limit {
 		fmt.Printf("%d. %s (%s)\n", i+1, entries[i].Name, humanReadable(entries[i].Size))
 	}
 
