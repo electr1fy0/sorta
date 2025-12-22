@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 )
@@ -75,20 +73,20 @@ func Undo(executor *internal.Executor) error {
 		return nil
 	}
 
-	fmt.Println("[?] Undo? [y/n]")
-	input := bufio.NewReader(os.Stdin)
-	confirm, err := input.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("error taking undo input: %w", err)
-	}
+	// fmt.Println("[?] Undo? [y/n]")
+	// input := bufio.NewReader(os.Stdin)
+	// confirm, err := input.ReadString('\n')
+	// if err != nil {
+	// 	return fmt.Errorf("error taking undo input: %w", err)
+	// }
 
-	if strings.TrimSpace(confirm) == "y" {
-		for _, op := range executor.Operations {
-			if err := executor.RevertExecute(op); err != nil {
-				return fmt.Errorf("error reverting operation: %w", err)
-			}
-		}
-		fmt.Println("Changes reverted.")
-	}
+	// if strings.TrimSpace(confirm) == "y" {
+	// 	for _, op := range executor.Operations {
+	// 		if err := executor.RevertExecute(op); err != nil {
+	// 			return fmt.Errorf("error reverting operation: %w", err)
+	// 		}
+	// 	}
+	// 	fmt.Println("Changes reverted.")
+	// }
 	return nil
 }

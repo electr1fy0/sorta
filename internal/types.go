@@ -14,7 +14,7 @@ type ConfigData struct {
 }
 
 type Sorter interface {
-	Sort(filePaths []FilePath) ([]FileOperation, error)
+	Decide(filePaths []FileEntry) ([]FileOperation, error)
 }
 
 type OperationType int
@@ -28,16 +28,20 @@ const (
 type Transaction struct {
 	Operations []FileOperation
 	ID         string
-	Root       string
 	Type       TransactionType
 }
 
-type FileOperation struct {
-	Type       OperationType
+type FileEntry struct {
+	RootDir    string
 	SourcePath string
-	DestPath   string
-	Filename   string
 	Size       int64
+}
+
+type FileOperation struct {
+	OpType   OperationType
+	File     FileEntry
+	DestPath string
+	Size     int64
 }
 
 type Executor struct {
@@ -45,10 +49,6 @@ type Executor struct {
 	Interactive bool
 	Operations  []FileOperation
 	Blacklist   []string
-}
-
-type ExtensionSorter struct {
-	categories map[string][]string
 }
 
 type ConfigSorter struct {
@@ -65,14 +65,10 @@ type Renamer struct {
 type SortResult struct {
 	Moved   int
 	Skipped int
+	Deleted int
 	Errors  []error
 }
 
 type Reporter struct {
 	DryRun bool
-}
-
-type FileInfo struct {
-	Name string
-	Size int64
 }

@@ -5,39 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
-	"time"
 )
-
-func NewExtensionSorter() *ExtensionSorter {
-	return &ExtensionSorter{
-		categories: map[string][]string{
-			"docs":   {".pdf", ".docx", ".pages", ".md", ".txts"},
-			"images": {".png", ".jpg", ".jpeg", ".heic", ".heif"},
-			"movies": {".mp4", ".mov"},
-			"slides": {".pptx"},
-		},
-	}
-}
-
-func (s *ExtensionSorter) Sort(BaseDir, dir, filename string, size int64) (FileOperation, error) {
-	ext := strings.ToLower(filepath.Ext(filename))
-
-	for folder, extensions := range s.categories {
-		if slices.Contains(extensions, ext) {
-			return FileOperation{
-				Type:       OpMove,
-				SourcePath: filepath.Join(dir, filename),
-				DestPath:   filepath.Join(BaseDir, folder, filename),
-				Filename:   filename,
-				Size:       size,
-			}, nil
-		}
-	}
-
-	return FileOperation{Type: OpSkip}, nil
-}
 
 func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
 	home, err := os.UserHomeDir()
@@ -85,53 +53,52 @@ func logHistory(t Transaction) {
 
 var transaction Transaction
 
-func (s *ConfigSorter) Sort(filePaths []FilePath) ([]FileOperation, error) {
+func (s *ConfigSorter) Decide(files []FileEntry) ([]FileOperation, error) {
 	ops := make([]FileOperation, 0, 10)
-	for _, filePath := range filePaths {
-		srcPath := filepath.Join(filePath.FullDir, filePath.Filename)
-		folder := categorize(*s.configData, filePath.Filename, filepath.Ext(srcPath))
+	for _, file := range files {
+		filename := filepath.Base(file.SourcePath)
+		destFolder := categorize(*s.configData, filename)
 
-		if folder == "" {
-			ops = append(ops, FileOperation{Type: OpSkip})
+		if destFolder == "" {
+			ops = append(ops, FileOperation{OpType: OpSkip})
 		} else {
 			ops = append(ops, FileOperation{
-				Type:       OpMove,
-				SourcePath: srcPath,
-				DestPath:   filepath.Join(filePath.BaseDir, folder, filePath.Filename),
-				Filename:   filePath.Filename,
-				Size:       filePath.Size,
+				OpType:   OpMove,
+				File:     file,
+				Size:     file.Size,
+				DestPath: filepath.Join(file.RootDir, destFolder, filename),
 			})
 		}
 	}
 
-	transaction.ID = time.Now().String()
-	transaction.Root = filePaths[0].BaseDir
-	transaction.Operations = ops
+	// transaction.ID = time.Now().String()
+	// transaction.Root = filePaths[0].BaseDir
+	// transaction.Operations = ops
 	logHistory(transaction)
 	return ops, nil
 }
 
-func readHistory(root string) (Transaction, error) {
-	home, err := os.UserHomeDir()
-	historyPath := filepath.Join(home, ".sorta", "history.log")
+// func readHistory(root string) (Transaction, error) {
+// 	home, err := os.UserHomeDir()
+// 	historyPath := filepath.Join(home, ".sorta", "history.log")
 
-	data, err := os.ReadFile(historyPath)
-	var undoT Transaction
-	lines := strings.Split(string(data), "\n")
+// 	data, err := os.ReadFile(historyPath)
+// 	var undoT Transaction
+// 	lines := strings.Split(string(data), "\n")
 
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := lines[i]
-		err = json.Unmarshal([]byte(line), &undoT)
-		if undoT.Root == root {
-			if undoT.Type == TUndo {
-				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
-			}
+// 	for i := len(lines) - 1; i >= 0; i-- {
+// 		line := lines[i]
+// 		err = json.Unmarshal([]byte(line), &undoT)
+// 		if undoT.Root == root {
+// 			if undoT.Type == TUndo {
+// 				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
+// 			}
 
-			return undoT, err
-		}
-	}
-	return Transaction{}, err
-}
+// 			return undoT, err
+// 		}
+// 	}
+// 	return Transaction{}, err
+// }
 
 type TransactionType int
 
@@ -140,26 +107,26 @@ const (
 	TUndo
 )
 
-func Undo(path string) error {
-	if !filepath.IsAbs(path) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		path = filepath.Join(home, path)
-	}
-	t, err := readHistory(path)
-	t.Type = TUndo
-	logHistory(t)
+// func Undo(path string) error {
+// 	if !filepath.IsAbs(path) {
+// 		home, err := os.UserHomeDir()
+// 		if err != nil {
+// 			return err
+// 		}
+// 		path = filepath.Join(home, path)
+// 	}
+// 	t, err := readHistory(path)
+// 	t.Type = TUndo
+// 	logHistory(t)
 
-	var executor Executor
-	for _, op := range t.Operations {
+// 	var executor Executor
+// 	for _, op := range t.Operations {
 
-		op.SourcePath, op.DestPath = op.DestPath, op.SourcePath
-		executor.Execute(op)
-	}
-	return err
-}
+// 		op.SourcePath, op.DestPath = op.DestPath, op.SourcePath
+// 		executor.Execute(op)
+// 	}
+// 	return err
+// }
 
 func (s *ConfigSorter) GetBlacklist() []string {
 	return s.configData.Blacklist

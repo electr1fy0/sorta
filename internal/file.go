@@ -13,22 +13,16 @@ import (
 var DuplNuke = false
 var RecurseLevel int = -1
 
-type FilePath struct {
-	BaseDir  string `json:"BaseDir"`
-	FullDir  string `json:"FullDir"`
-	Filename string `json:"Filename"`
-	Size     int64  `json:"size"`
-}
-
-func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
+func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
 	result := &SortResult{}
 	var operations []FileOperation
-	var filePaths []FilePath
-	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		relPath, _ := filepath.Rel(dir, filepath.Dir(path))
-		relPath = filepath.Clean(relPath)
-		fmt.Println("relpath", relPath)
-		slashCnt := strings.Count(relPath, "/")
+	var files []FileEntry
+
+	walkErr := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		relFolder, _ := filepath.Rel(rootDir, filepath.Dir(path))
+		relFolder = filepath.Clean(relFolder)
+		fmt.Println("relpath", relFolder)
+		slashCnt := strings.Count(relFolder, "/")
 		if RecurseLevel >= 0 && slashCnt > RecurseLevel {
 			return nil
 		}
@@ -45,9 +39,8 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		}
 
 		size := stat.Size()
-		parentDir := filepath.Dir(path)
 
-		filePaths = append(filePaths, FilePath{dir, parentDir, d.Name(), size})
+		files = append(files, FileEntry{rootDir, path, size})
 		return nil
 	})
 
@@ -55,7 +48,7 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		return nil, walkErr
 	}
 
-	operations, _ = sorter.Sort(filePaths)
+	operations, _ = sorter.Decide(files)
 
 	for _, op := range operations {
 		moved, err := executor.Execute(op)
@@ -64,23 +57,23 @@ func FilterFiles(dir string, sorter Sorter, executor *Executor, reporter *Report
 		}
 
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Errorf("%s: %w", op.Filename, err))
+			result.Errors = append(result.Errors, fmt.Errorf("%s: %w", filepath.Base(op.File.SourcePath), err))
 			continue
 		}
 		if moved {
 			result.Moved++
 		}
-		if op.Type == OpSkip {
+		if op.OpType == OpSkip {
 			result.Skipped++
 		}
 	}
 
-	if err := cleanEmptyFolders(dir); err != nil {
+	if err := cleanEmptyFolders(rootDir); err != nil {
 		return nil, err
 	}
 
 	if DuplNuke {
-		if err := os.RemoveAll(filepath.Join(dir, "duplicates")); err != nil {
+		if err := os.RemoveAll(filepath.Join(rootDir, "duplicates")); err != nil {
 			return nil, err
 		}
 	}
@@ -115,9 +108,9 @@ func cleanEmptyFolders(dir string) error {
 	return nil
 }
 
-func TopLargestFiles(dir string, n int) error {
-	var entries []FileInfo
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+func TopLargestFiles(rootDir string, n int) error {
+	var entries []FileEntry
+	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -128,7 +121,7 @@ func TopLargestFiles(dir string, n int) error {
 		if err != nil {
 			return err
 		}
-		entries = append(entries, FileInfo{d.Name(), f.Size()})
+		entries = append(entries, FileEntry{rootDir, path, f.Size()})
 		return nil
 	})
 	if err != nil {
@@ -145,9 +138,9 @@ func TopLargestFiles(dir string, n int) error {
 	})
 
 	limit := min(len(entries), n)
-	fmt.Printf("Top %d largest files in %s:\n", limit, dir)
+	fmt.Printf("Top %d largest files in %s:\n", limit, rootDir)
 	for i := range limit {
-		fmt.Printf("%d. %s (%s)\n", i+1, entries[i].Name, humanReadable(entries[i].Size))
+		fmt.Printf("%d. %s (%s)\n", i+1, filepath.Base(entries[i].SourcePath), humanReadable(entries[i].Size))
 	}
 
 	return nil

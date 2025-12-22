@@ -11,20 +11,14 @@ import (
 
 var LogCnt = 0
 
-// type Transaction struct {
-// 	Operations []FileOperation
-// 	ID         string
-// 	Root       string
-// }
-
 func (e *Executor) RevertExecute(op FileOperation) error {
-	srcDir := filepath.Dir(op.SourcePath)
-	op.DestPath, op.SourcePath = op.SourcePath, op.DestPath
+	srcDir := filepath.Dir(op.File.SourcePath)
+	op.DestPath, op.File.SourcePath = op.File.SourcePath, op.DestPath
 
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
-	if err := os.Rename(op.SourcePath, op.DestPath); err != nil {
+	if err := os.Rename(op.File.SourcePath, op.DestPath); err != nil {
 		return fmt.Errorf("failed to revert operation: %w", err)
 	}
 	return nil
@@ -35,34 +29,34 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		return false, nil
 	}
 
-	switch op.Type {
+	switch op.OpType {
 	case OpMove:
-		if op.DestPath == op.SourcePath {
+		if op.DestPath == op.File.SourcePath {
 			return false, nil
 		}
-		srcDir := filepath.Dir(op.SourcePath)
+		srcDir := filepath.Dir(op.File.SourcePath)
 		srcDirName := filepath.Base(srcDir)
 		if slices.Contains(e.Blacklist, srcDirName) {
 			return false, nil
 		}
 		reader := bufio.NewReader(os.Stdin)
-		if e.Interactive {
-			fmt.Printf("[?] Move file \"%s\"? [y/n]: ", op.Filename)
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				return false, fmt.Errorf("error reading input: %w", err)
-			}
-			if strings.TrimSpace(input) != "y" {
-				return false, nil
-			}
-		}
+		// if e.Interactive {
+		// 	fmt.Printf("[?] Move file \"%s\"? [y/n]: ", op.Filename)
+		// 	input, err := reader.ReadString('\n')
+		// 	if err != nil {
+		// 		return false, fmt.Errorf("error reading input: %w", err)
+		// 	}
+		// 	if strings.TrimSpace(input) != "y" {
+		// 		return false, nil
+		// 	}
+		// }
 
 		destDir := filepath.Dir(op.DestPath)
 
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			return false, fmt.Errorf("failed to create directory: %w", err)
 		}
-		if err := os.Rename(op.SourcePath, op.DestPath); err != nil {
+		if err := os.Rename(op.File.SourcePath, op.DestPath); err != nil {
 			return false, fmt.Errorf("failed to move file: %w", err)
 		}
 
@@ -86,7 +80,7 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		return true, nil
 
 	case OpDelete:
-		if err := os.Remove(op.SourcePath); err != nil {
+		if err := os.Remove(op.File.SourcePath); err != nil {
 			return false, fmt.Errorf("failed to delete file: %w", err)
 		}
 		return true, nil

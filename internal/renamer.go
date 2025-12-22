@@ -112,14 +112,14 @@ func NewRenamer() *Renamer {
 	return &Renamer{}
 }
 
-func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
-	if len(filePaths) == 0 {
+func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
+	if len(files) == 0 {
 		return nil, nil
 	}
 
-	filenames := make([]string, len(filePaths))
-	for i, f := range filePaths {
-		filenames[i] = f.Filename
+	filenames := make([]string, len(files))
+	for i, f := range files {
+		filenames[i] = filepath.Base(f.SourcePath)
 	}
 
 	marshalledPayload, err := json.Marshal(filenames)
@@ -127,7 +127,7 @@ func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
 		return nil, fmt.Errorf("failed to marshal filenames: %w", err)
 	}
 
-	prompt := getPrompt(filePaths[0].BaseDir)
+	prompt := getPrompt(files[0].RootDir)
 
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, nil)
@@ -168,11 +168,11 @@ func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
 		return nil, fmt.Errorf("failed to parse AI response: %w. Raw output: %s", err, raw)
 	}
 
-	if len(newnames) != len(filePaths) {
-		return nil, fmt.Errorf("integrity error: sent %d files, received %d names", len(filePaths), len(newnames))
+	if len(newnames) != len(files) {
+		return nil, fmt.Errorf("integrity error: sent %d files, received %d names", len(files), len(newnames))
 	}
 
-	ops := make([]FileOperation, 0, len(filePaths))
+	ops := make([]FileOperation, 0, len(files))
 	seen := make(map[string]bool)
 
 	for i, newName := range newnames {
@@ -190,13 +190,13 @@ func (r *Renamer) Sort(filePaths []FilePath) ([]FileOperation, error) {
 			counter++
 		}
 		seen[newName] = true
+		destPath := filepath.Join(filepath.Dir(files[i].SourcePath), newName)
 
 		op := FileOperation{
-			Type:       OpMove,
-			SourcePath: filepath.Join(filePaths[i].FullDir, filePaths[i].Filename),
-			DestPath:   filepath.Join(filePaths[i].FullDir, newName),
-			Filename:   newName,
-			Size:       filePaths[i].Size,
+			OpType:   OpMove,
+			File:     files[i],
+			DestPath: filepath.Join(files[i].SourcePath, destPath),
+			Size:     files[i].Size,
 		}
 		ops = append(ops, op)
 	}

@@ -93,7 +93,7 @@ func createConfig(path string) error {
 	return nil
 }
 
-func categorize(configData ConfigData, filename, fileExt string) string {
+func categorize(configData ConfigData, filename string) string {
 	var hasStar bool
 	var fallback string
 	for i, foldername := range configData.Foldernames {

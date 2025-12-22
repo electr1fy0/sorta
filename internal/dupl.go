@@ -13,20 +13,19 @@ func NewDuplicateFinder() *DuplicateFinder {
 	}
 }
 
-func (d *DuplicateFinder) Sort(filepaths []FilePath) ([]FileOperation, error) {
-	ops := make([]FileOperation, 0, len(filepaths))
+func (d *DuplicateFinder) Decide(files []FileEntry) ([]FileOperation, error) {
+	ops := make([]FileOperation, 0, len(files))
 
-	for _, fp := range filepaths {
-		fullPath := filepath.Join(fp.FullDir, fp.Filename)
+	for _, f := range files {
 
-		if fullPath == filepath.Join(fp.BaseDir, "duplicates", fp.Filename) {
+		if f.SourcePath == filepath.Join(f.RootDir, "duplicates", (filepath.Base(f.SourcePath))) {
 			ops = append(ops, FileOperation{
-				Type: OpSkip,
+				OpType: OpSkip,
 			})
 			continue
 		}
 
-		data, err := os.ReadFile(fullPath)
+		data, err := os.ReadFile(f.SourcePath)
 		if err != nil {
 			return nil, err
 		}
@@ -34,17 +33,15 @@ func (d *DuplicateFinder) Sort(filepaths []FilePath) ([]FileOperation, error) {
 		checksum := fmt.Sprintf("%x", sha256.Sum256(data))
 
 		if _, exists := d.hashes[checksum]; !exists {
-			d.hashes[checksum] = fullPath
-			ops = append(ops, FileOperation{Type: OpSkip})
+			d.hashes[checksum] = f.SourcePath
+			ops = append(ops, FileOperation{OpType: OpSkip})
 			continue
 		}
 
 		ops = append(ops, FileOperation{
-			Type:       OpMove,
-			SourcePath: fullPath,
-			DestPath:   filepath.Join(fp.BaseDir, "duplicates", fp.Filename),
-			Filename:   fp.Filename,
-			Size:       fp.Size,
+			OpType:   OpMove,
+			File:     f,
+			DestPath: filepath.Join(f.RootDir, "duplicates", (filepath.Base(f.SourcePath))),
 		})
 	}
 
