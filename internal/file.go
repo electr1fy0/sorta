@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -87,24 +86,38 @@ func cleanEmptyFolders(dir string) error {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() {
-			dirPath := filepath.Join(dir, entry.Name())
-			f, err := os.Open(dirPath)
-			if err != nil {
-				return fmt.Errorf("failed to open directory: %w", err)
-			}
-			defer f.Close()
+		path := filepath.Join(dir, entry.Name())
 
-			_, err = f.Readdir(1)
-			if err == io.EOF {
-				if err := os.Remove(dirPath); err != nil {
-					return fmt.Errorf("failed to remove empty directory: %w", err)
+		if entry.IsDir() {
+			if err := cleanEmptyFolders(path); err != nil {
+				return err
+			}
+
+			subEntries, err := os.ReadDir(path)
+			if err != nil {
+				continue
+			}
+			fmt.Printf("entry: %v, subentries: %v\n", entry.Name(), subEntries)
+
+			if len(subEntries) == 0 {
+
+				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+
+					return fmt.Errorf("failed to remove empty dir, %q: %w", path, err)
 				}
-			} else if err != nil {
-				return fmt.Errorf("failed to read directory contents: %w", err)
+			} else if len(subEntries) == 1 && subEntries[0].Name() == ".DS_Store" {
+				err := os.Remove(filepath.Join(path, ".DS_Store"))
+				if err != nil {
+					return fmt.Errorf("failed to remove .DS_Store: %v", err)
+				}
+				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("failed to remove empty dir, %q: %w", path, err)
+				}
+
 			}
 		}
 	}
+
 	return nil
 }
 
