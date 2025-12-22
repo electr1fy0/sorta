@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
@@ -64,48 +66,60 @@ func (s *ConfigSorter) Decide(files []FileEntry) ([]FileOperation, error) {
 	return ops, nil
 }
 
-// func readHistory(root string) (Transaction, error) {
-// 	home, err := os.UserHomeDir()
-// 	historyPath := filepath.Join(home, ".sorta", "history.log")
+func readLastTransaction(root string) (Transaction, error) {
+	home, err := os.UserHomeDir()
+	historyPath := filepath.Join(home, ".sorta", "history")
+	var transaction Transaction
 
-// 	data, err := os.ReadFile(historyPath)
-// 	var undoT Transaction
-// 	lines := strings.Split(string(data), "\n")
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		return transaction, err
+	}
+	lines := strings.Split(string(data), "\n")
 
-// 	for i := len(lines) - 1; i >= 0; i-- {
-// 		line := lines[i]
-// 		err = json.Unmarshal([]byte(line), &undoT)
-// 		if undoT.Root == root {
-// 			if undoT.Type == TUndo {
-// 				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
-// 			}
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		err = json.Unmarshal([]byte(line), &transaction)
+		if err != nil {
+			return transaction, err
+		}
 
-// 			return undoT, err
-// 		}
-// 	}
-// 	return Transaction{}, err
-// }
+		if len(transaction.Operations) > 0 && transaction.Operations[0].File.RootDir == root {
+			if transaction.Type == TUndo {
+				// fmt.Println(transaction.Type)
+				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
+			}
 
-// func Undo(path string) error {
-// 	if !filepath.IsAbs(path) {
-// 		home, err := os.UserHomeDir()
-// 		if err != nil {
-// 			return err
-// 		}
-// 		path = filepath.Join(home, path)
-// 	}
-// 	t, err := readHistory(path)
-// 	t.Type = TUndo
-// 	logHistory(t)
+			return transaction, err
+		}
+	}
+	return transaction, err
+}
 
-// 	var executor Executor
-// 	for _, op := range t.Operations {
+func Undo(path string) error {
+	if !filepath.IsAbs(path) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		path = filepath.Join(home, path)
+	}
+	t, err := readLastTransaction(path)
+	if err != nil {
+		return err
+	}
+	t.Type = TUndo
 
-// 		op.SourcePath, op.DestPath = op.DestPath, op.SourcePath
-// 		executor.Execute(op)
-// 	}
-// 	return err
-// }
+	var executor Executor
+	for _, op := range t.Operations {
+		op.File.SourcePath, op.DestPath = op.DestPath, op.File.SourcePath
+		executor.Execute(op)
+	}
+	return nil
+}
 
 func (s *ConfigSorter) GetBlacklist() []string {
 	return s.configData.Blacklist

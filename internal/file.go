@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -50,8 +49,6 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	}
 
 	operations, _ = sorter.Decide(files)
-	id := make([]byte, 16)
-	rand.Read(id)
 
 	for _, op := range operations {
 		moved, err := executor.Execute(op)
@@ -70,7 +67,7 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 			result.Skipped++
 		}
 	}
-	transaction := Transaction{Operations: operations, ID: string(id), Type: TAction}
+	transaction := Transaction{Operations: operations, ID: "1", Type: TAction}
 
 	home, _ := os.UserHomeDir()
 
