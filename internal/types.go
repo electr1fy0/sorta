@@ -23,12 +23,20 @@ const (
 	OpMove OperationType = iota
 	OpDelete
 	OpSkip
+	OpUndo
+)
+
+type TransactionType int
+
+const (
+	TAction TransactionType = iota
+	TUndo
 )
 
 type Transaction struct {
-	Operations []FileOperation
 	ID         string
 	Type       TransactionType
+	Operations []FileOperation
 }
 
 type FileEntry struct {

@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,18 +38,6 @@ func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
 	}, nil
 }
 
-func logHistory(t Transaction) {
-	data, _ := json.Marshal(t)
-	data = append(data, '\n')
-
-	home, _ := os.UserHomeDir()
-	logPath := filepath.Join(home, ".sorta", "history.log")
-	f, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	f.Write(data)
-	LogCnt++
-	defer f.Close()
-}
-
 var transaction Transaction
 
 func (s *ConfigSorter) Decide(files []FileEntry) ([]FileOperation, error) {
@@ -74,7 +61,6 @@ func (s *ConfigSorter) Decide(files []FileEntry) ([]FileOperation, error) {
 	// transaction.ID = time.Now().String()
 	// transaction.Root = filePaths[0].BaseDir
 	// transaction.Operations = ops
-	logHistory(transaction)
 	return ops, nil
 }
 
@@ -99,13 +85,6 @@ func (s *ConfigSorter) Decide(files []FileEntry) ([]FileOperation, error) {
 // 	}
 // 	return Transaction{}, err
 // }
-
-type TransactionType int
-
-const (
-	TAction TransactionType = iota
-	TUndo
-)
 
 // func Undo(path string) error {
 // 	if !filepath.IsAbs(path) {

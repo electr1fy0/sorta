@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -48,6 +50,8 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	}
 
 	operations, _ = sorter.Decide(files)
+	id := make([]byte, 16)
+	rand.Read(id)
 
 	for _, op := range operations {
 		moved, err := executor.Execute(op)
@@ -66,6 +70,19 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 			result.Skipped++
 		}
 	}
+	transaction := Transaction{Operations: operations, ID: string(id), Type: TAction}
+
+	home, _ := os.UserHomeDir()
+
+	historyPath := filepath.Join(home, ".sorta", "history")
+	f, err := os.OpenFile(historyPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	data, _ := json.Marshal(transaction)
+
+	f.Write([]byte(string(data) + "\n"))
 
 	if err := cleanEmptyFolders(rootDir); err != nil {
 		return nil, err
