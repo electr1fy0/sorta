@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -93,23 +94,41 @@ func createConfig(path string) error {
 	return nil
 }
 
-func categorize(configData ConfigData, filename string) string {
-	var hasStar bool
-	var fallback string
+type categorizeMode int
+
+const (
+	contains categorizeMode = iota
+	regex
+	equals
+)
+
+func matchKeyword(keyword, filename string, mode categorizeMode) (bool, error) {
+	switch mode {
+	case contains:
+		if strings.Contains(filename, keyword) {
+			return true, nil
+		}
+	case regex:
+		found, err := regexp.MatchString(keyword, filename)
+		return found, err
+	}
+
+	return false, fmt.Errorf("Incorrect categorize mode")
+}
+
+func categorize(configData ConfigData, filename string, mode categorizeMode) string {
+	fallback := ""
 	for i, foldername := range configData.Foldernames {
 		for _, keyword := range configData.Keywords[i] {
 			if keyword == "*" {
-				hasStar = true
 				fallback = foldername
 			}
-			if strings.Contains(filename, keyword) {
+			match, _ := matchKeyword(keyword, filename, mode)
+			if match {
 				return foldername
 			}
 		}
 	}
 
-	if hasStar {
-		return fallback
-	}
-	return ""
+	return fallback
 }

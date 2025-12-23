@@ -63,4 +63,5 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&interactive, "interactive", false, "Interactive mode")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "~/.sorta/config", "Path to config file")
 	rootCmd.PersistentFlags().IntVar(&internal.RecurseLevel, "recurselevel", -1, "Level of recursion to perform in the directory")
+	rootCmd.PersistentFlags().StringVar(&internal.Mode, "categorizeby", "contains", "Categorize by contains/regex")
 }

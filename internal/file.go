@@ -6,17 +6,24 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
 
-var DuplNuke = false
-var RecurseLevel int = -1
+var (
+	DuplNuke         = false
+	RecurseLevel int = -1
+)
 
 func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
 	result := &SortResult{}
 	var operations []FileOperation
 	var files []FileEntry
+
+	if RecurseLevel >= 0 && runtime.GOOS == "windows" {
+		return result, fmt.Errorf("--recurselevel is only available on Unix")
+	}
 
 	walkErr := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		relFolder, _ := filepath.Rel(rootDir, filepath.Dir(path))
@@ -29,10 +36,10 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 		if err != nil {
 			return err
 		}
-
-		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
+		if strings.Contains(path, "/.") || strings.Contains(path, "\\.") || d.IsDir() {
 			return nil
 		}
+
 		stat, err := d.Info()
 		if err != nil {
 			return err
