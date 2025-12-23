@@ -64,7 +64,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 
 func createConfig(path string) error {
 	content := []byte(`// Config file for 'sorta'
-// Config version: v0.3
+// Config version: v0.4
 //
 // Each line defines how files should be sorted.
 // Format: folderName = key1,key2,key3

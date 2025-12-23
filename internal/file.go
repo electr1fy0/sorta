@@ -67,7 +67,12 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 			continue
 		}
 		if moved {
-			result.Moved++
+			switch op.OpType {
+			case OpMove:
+				result.Moved++
+			case OpDelete:
+				result.Deleted++
+			}
 		}
 		if op.OpType == OpSkip {
 			result.Skipped++

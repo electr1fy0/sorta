@@ -43,10 +43,9 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 	fmt.Printf("%sDir:%s %s\n", ansiCyan, ansiReset, dir)
 
 	executor := &internal.Executor{
-		DryRun:      dryRun,
-		Interactive: interactive,
-		Blacklist:   blacklist,
-		Operations:  make([]internal.FileOperation, 0),
+		DryRun:     dryRun,
+		Blacklist:  blacklist,
+		Operations: make([]internal.FileOperation, 0),
 	}
 	reporter := &internal.Reporter{DryRun: dryRun}
 

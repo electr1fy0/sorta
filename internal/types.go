@@ -53,10 +53,9 @@ type FileOperation struct {
 }
 
 type Executor struct {
-	DryRun      bool
-	Interactive bool
-	Operations  []FileOperation
-	Blacklist   []string
+	DryRun     bool
+	Operations []FileOperation
+	Blacklist  []string
 }
 
 type ConfigSorter struct {

@@ -64,7 +64,6 @@ sudo mv sorta /usr/local/bin/
 sorta <directory>
 sorta ~/Downloads
 sorta Desktop/messy-folder --dry
-sorta Documents --recurselevel 1 # Unix only flag
 ```
 
 Uses `~/.sorta/config` to define sorting rules. Creates a default config if it doesn't exist.
@@ -160,6 +159,7 @@ Users may also manually edit the config at the same path.
 
 - `--dry` - Preview changes without moving files
 - `--config` - Path to config file (default `~/.sorta/config`)
+- `--recurselevel` - Level of recursion to perform in the directory (Unix only)
 
 ## Notes
 

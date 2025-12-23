@@ -7,8 +7,6 @@ import (
 	"slices"
 )
 
-var LogCnt = 0
-
 func (e *Executor) Execute(op FileOperation) (bool, error) {
 	if e.DryRun {
 		return false, nil

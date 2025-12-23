@@ -96,9 +96,8 @@ func GetHistory() ([]Transaction, error) {
 	}
 
 	var transactions []Transaction
-	lines := strings.Split(string(data), "\n")
 
-	for _, line := range lines {
+	for line := range strings.Lines(string(data)) {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
