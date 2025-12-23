@@ -28,7 +28,6 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	walkErr := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		relFolder, _ := filepath.Rel(rootDir, filepath.Dir(path))
 		relFolder = filepath.Clean(relFolder)
-		fmt.Println("relpath", relFolder)
 		slashCnt := strings.Count(relFolder, "/")
 		if RecurseLevel >= 0 && slashCnt > RecurseLevel {
 			return nil
@@ -118,7 +117,6 @@ func cleanEmptyFolders(dir string) error {
 			if err != nil {
 				continue
 			}
-			fmt.Printf("entry: %v, subentries: %v\n", entry.Name(), subEntries)
 
 			if len(subEntries) == 0 {
 

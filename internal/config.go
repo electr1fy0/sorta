@@ -94,36 +94,28 @@ func createConfig(path string) error {
 	return nil
 }
 
-type categorizeMode int
+func matchKeyword(keyword, filename string) (bool, error) {
 
-const (
-	contains categorizeMode = iota
-	regex
-	equals
-)
-
-func matchKeyword(keyword, filename string, mode categorizeMode) (bool, error) {
-	switch mode {
-	case contains:
-		if strings.Contains(filename, keyword) {
-			return true, nil
+	if trimmed, found := strings.CutPrefix(keyword, "regex("); found {
+		if trimmed, found := strings.CutSuffix(trimmed, ")"); found {
+			return regexp.MatchString(trimmed, filename)
+		} else {
+			return false, fmt.Errorf("invalid keyword, regex bracket left open")
 		}
-	case regex:
-		found, err := regexp.MatchString(keyword, filename)
-		return found, err
+	} else if strings.Contains(filename, keyword) {
+		return true, nil
 	}
-
-	return false, fmt.Errorf("Incorrect categorize mode")
+	return false, nil
 }
 
-func categorize(configData ConfigData, filename string, mode categorizeMode) string {
+func categorize(configData ConfigData, filename string) string {
 	fallback := ""
 	for i, foldername := range configData.Foldernames {
 		for _, keyword := range configData.Keywords[i] {
 			if keyword == "*" {
 				fallback = foldername
 			}
-			match, _ := matchKeyword(keyword, filename, mode)
+			match, _ := matchKeyword(keyword, filename)
 			if match {
 				return foldername
 			}

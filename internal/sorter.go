@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-var Mode string
-
 func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -44,17 +42,10 @@ func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
 
 func (s *ConfigSorter) Decide(files []FileEntry) ([]FileOperation, error) {
 	ops := make([]FileOperation, 0, 10)
-	var mode = contains
-	switch Mode {
-	case "regex":
-		mode = regex
-	default:
-		mode = contains
-	}
 
 	for _, file := range files {
 		filename := filepath.Base(file.SourcePath)
-		destFolder := categorize(*s.configData, filename, mode)
+		destFolder := categorize(*s.configData, filename)
 
 		if destFolder == "" {
 			ops = append(ops, FileOperation{OpType: OpSkip})
