@@ -89,6 +89,7 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 		if err := os.RemoveAll(filepath.Join(rootDir, "duplicates")); err != nil {
 			return nil, err
 		}
+		result.Deleted++
 	}
 	return result, nil
 }
