@@ -64,7 +64,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 
 func createConfig(path string) error {
 	content := []byte(`// Config file for 'sorta'
-// Config version: v0.2
+// Config version: v0.3
 //
 // Each line defines how files should be sorted.
 // Format: folderName = key1,key2,key3
@@ -77,25 +77,26 @@ func createConfig(path string) error {
 // - * as a keyword matches all filenames which don't contain the other keywords
 // - . as a foldernames means the root folder that you passed to sorta.
 // - To flatten the subfolder tree, use . = *
+// - Use regex for kewyords. Wrap your expression with: regex()
 //
 // Example:
 //
 // Finance=invoice,bill,txt
 // Music=track,song
 // Study=notes,book
+// 2024-Papers=regex(^PAP.*2024$)
 // others=*
 //
-// // Important folder that sorta move from:
+// Important folder that sorta won't move from:
 // !my-secret-folder`)
 
-	if err := os.WriteFile(path, content, 0600); err != nil {
+	if err := os.WriteFile(path, content, 0644); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
 	return nil
 }
 
 func matchKeyword(keyword, filename string) (bool, error) {
-
 	if trimmed, found := strings.CutPrefix(keyword, "regex("); found {
 		if trimmed, found := strings.CutSuffix(trimmed, ")"); found {
 			return regexp.MatchString(trimmed, filename)

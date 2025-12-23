@@ -84,7 +84,7 @@ func readLastTransaction(root string) (Transaction, error) {
 		}
 
 		if len(transaction.Operations) > 0 && transaction.Operations[0].File.RootDir == root {
-			if transaction.Type == TUndo {
+			if transaction.TType == TUndo {
 				// fmt.Println(transaction.Type)
 				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
 			}
@@ -139,8 +139,9 @@ func Undo(path string) error {
 	if err != nil {
 		return err
 	}
-	t.Type = TUndo
 
+	t.TType = TUndo
+	logToHistory(t)
 	var executor Executor
 	for _, op := range t.Operations {
 		op.File.SourcePath, op.DestPath = op.DestPath, op.File.SourcePath

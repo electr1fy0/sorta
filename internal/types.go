@@ -35,7 +35,7 @@ const (
 
 type Transaction struct {
 	ID         string
-	Type       TransactionType
+	TType      TransactionType
 	Operations []FileOperation
 }
 

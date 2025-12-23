@@ -28,7 +28,7 @@ var historyCmd = &cobra.Command{
 		fmt.Fprintln(w, "ID\tType\tFiles Affected\tRoot Directory")
 		for _, t := range transactions {
 			typeStr := "Action"
-			if t.Type == internal.TUndo {
+			if t.TType == internal.TUndo {
 				typeStr = "Undo"
 			}
 			rootDir := ""

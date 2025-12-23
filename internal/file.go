@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 )
 
 var (
@@ -73,20 +73,9 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 			result.Skipped++
 		}
 	}
-	transaction := Transaction{Operations: operations, ID: "1", Type: TAction}
-
-	home, _ := os.UserHomeDir()
-
-	historyPath := filepath.Join(home, ".sorta", "history")
-	f, err := os.OpenFile(historyPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return nil, err
-	}
-
-	data, _ := json.Marshal(transaction)
-
-	f.Write([]byte(string(data) + "\n"))
-
+	id := time.Now().String()
+	transaction := Transaction{TType: TAction, Operations: operations, ID: id}
+	logToHistory(transaction)
 	if err := cleanEmptyFolders(rootDir); err != nil {
 		return nil, err
 	}
