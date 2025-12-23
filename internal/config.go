@@ -22,7 +22,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 	defer file.Close()
 	var configData ConfigData
 	configData.Foldernames = make([]string, 0, 50)
-	configData.Keywords = make([][]string, 0, 50)
+	configData.Matchers = make([][]Matcher, 0, 50)
 	configData.Blacklist = make([]string, 0, 10)
 
 	scanner := bufio.NewScanner(file)
@@ -43,11 +43,22 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 
 		folder := strings.TrimSpace(parts[0])
 		keywords := strings.Split(parts[1], ",")
+		matchers := make([]Matcher, len(keywords))
 		for i, k := range keywords {
-			keywords[i] = strings.TrimSpace(k)
+			k = strings.TrimSpace(k)
+			if trimmed, found := strings.CutPrefix(k, "regex("); found {
+				if trimmed, found := strings.CutSuffix(trimmed, ")"); found {
+					re, err := regexp.Compile(trimmed)
+					if err == nil {
+						matchers[i] = Matcher{Regex: re}
+						continue
+					}
+				}
+			}
+			matchers[i] = Matcher{Raw: k}
 		}
 		configData.Foldernames = append(configData.Foldernames, folder)
-		configData.Keywords = append(configData.Keywords, keywords)
+		configData.Matchers = append(configData.Matchers, matchers)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -97,28 +108,21 @@ func createConfig(path string) error {
 	return nil
 }
 
-func matchKeyword(keyword, filename string) (bool, error) {
-	if trimmed, found := strings.CutPrefix(keyword, "regex("); found {
-		if trimmed, found := strings.CutSuffix(trimmed, ")"); found {
-			return regexp.MatchString(trimmed, filename)
-		} else {
-			return false, fmt.Errorf("invalid keyword, regex bracket left open")
-		}
-	} else if strings.Contains(filename, keyword) {
-		return true, nil
-	}
-	return false, nil
-}
-
 func categorize(configData ConfigData, filename string) string {
 	fallback := ""
 	for i, foldername := range configData.Foldernames {
-		for _, keyword := range configData.Keywords[i] {
-			if keyword == "*" {
+		for _, matcher := range configData.Matchers[i] {
+			if matcher.Regex != nil {
+				if matcher.Regex.MatchString(filename) {
+					return foldername
+				}
+				continue
+			}
+
+			if matcher.Raw == "*" {
 				fallback = foldername
 			}
-			match, _ := matchKeyword(keyword, filename)
-			if match {
+			if strings.Contains(filename, matcher.Raw) {
 				return foldername
 			}
 		}

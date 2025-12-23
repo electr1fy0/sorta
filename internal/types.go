@@ -1,5 +1,9 @@
 package internal
 
+import (
+	"regexp"
+)
+
 const (
 	ansiReset  = "[0m"
 	ansiRed    = "[31m"
@@ -9,8 +13,13 @@ const (
 
 type ConfigData struct {
 	Foldernames []string
-	Keywords    [][]string
+	Matchers    [][]Matcher
 	Blacklist   []string
+}
+
+type Matcher struct {
+	Raw   string
+	Regex *regexp.Regexp
 }
 
 type Sorter interface {
