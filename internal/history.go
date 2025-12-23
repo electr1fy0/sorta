@@ -79,3 +79,35 @@ func readLastTransaction(root string) (Transaction, error) {
 	}
 	return transaction, err
 }
+
+func GetHistory() ([]Transaction, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	historyPath := filepath.Join(home, ".sorta", "history")
+
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var transactions []Transaction
+	lines := strings.Split(string(data), "\n")
+
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var t Transaction
+		if err := json.Unmarshal([]byte(line), &t); err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, t)
+	}
+
+	return transactions, nil
+}

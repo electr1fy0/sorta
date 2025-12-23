@@ -78,6 +78,7 @@ func createConfig(path string) error {
 // - . as a foldernames means the root folder that you passed to sorta.
 // - To flatten the subfolder tree, use . = *
 // - Use regex for kewyords. Wrap your expression with: regex()
+// - foldername can also be a relative folderpath. e.g. foo/bar/oof = rab creates a folder tree.
 //
 // Example:
 //

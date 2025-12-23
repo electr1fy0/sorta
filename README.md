@@ -76,7 +76,14 @@ Users can manually edit the file at `~/.sorta/config`.
 # Lines starting with '#' or '//' are comments
 FolderName=keyword1,keyword2
 AnotherFolder=another,set,of,keywords
+
+# Keywords can be regular expressions
 OneMoreFolder=regex(your-regular-expression)
+
+# FolderName can also be a relative folderpath.
+foo/bar/oof = rab creates a folder tree.
+
+# Match all files
 Misc=*
 ```
 
@@ -152,7 +159,6 @@ Users may also manually edit the config at the same path.
 ## Flags
 
 - `--dry` - Preview changes without moving files
-- `--interactive` - Confirm before each move
 - `--config` - Path to config file (default `~/.sorta/config`)
 
 ## Notes
