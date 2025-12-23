@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
@@ -32,12 +30,9 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		if strings.HasPrefix(configPath, "~") {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("cannot determine home directory: %w", err)
-			}
-			configPath = filepath.Join(home, configPath[1:])
+		configPath, err = internal.ExpandPath(configPath)
+		if err != nil {
+			return err
 		}
 
 		configSorter, err := internal.NewConfigSorter(dir, configPath)

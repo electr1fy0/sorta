@@ -17,11 +17,18 @@ func validateDir(path string) (string, error) {
 	if filepath.IsAbs(path) {
 		path = filepath.Clean(path)
 	} else {
-		home, err := os.UserHomeDir()
+		var err error
+		path, err = internal.ExpandPath(path)
 		if err != nil {
-			return "", fmt.Errorf("cannot determine home directory: %w", err)
+			return "", err
 		}
-		path = filepath.Join(home, path)
+		if !filepath.IsAbs(path) {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("cannot determine home directory: %w", err)
+			}
+			path = filepath.Join(home, path)
+		}
 	}
 
 	info, err := os.Stat(path)

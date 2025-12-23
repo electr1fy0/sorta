@@ -3,3 +3,4 @@ dist/
 sorta
 a.out
 learn.go
+cmd/watch.go

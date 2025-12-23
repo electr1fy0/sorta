@@ -1,17 +1,16 @@
 package internal
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
 
 func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
-	home, err := os.UserHomeDir()
+	sortaDir, err := GetSortaDir()
 	if err != nil {
-		return nil, fmt.Errorf("error determining home directory: %w", err)
+		return nil, err
 	}
-	defaultPath := filepath.Join(home, ".sorta", "config")
+	defaultPath := filepath.Join(sortaDir, "config")
 	var localPath string
 	if configPath == defaultPath {
 		localPath = filepath.Join(folderPath, ".sorta", "config")

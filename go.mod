@@ -3,6 +3,7 @@ module github.com/electr1fy0/sorta
 go 1.24.5
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/spf13/cobra v1.10.1
 	google.golang.org/genai v1.36.0
 )

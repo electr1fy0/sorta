@@ -22,31 +22,11 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	var files []FileEntry
 
 	if RecurseLevel >= 0 && runtime.GOOS == "windows" {
-		return result, fmt.Errorf("--recurselevel is only available on Unix")
+		return result, fmt.Errorf("--recurselevel is only available on unix")
 	}
 
-	walkErr := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
-		relFolder, _ := filepath.Rel(rootDir, filepath.Dir(path))
-		relFolder = filepath.Clean(relFolder)
-		slashCnt := strings.Count(relFolder, "/")
-		if RecurseLevel >= 0 && slashCnt > RecurseLevel {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if strings.Contains(path, "/.") || strings.Contains(path, "\\.") || d.IsDir() {
-			return nil
-		}
-
-		stat, err := d.Info()
-		if err != nil {
-			return err
-		}
-
-		size := stat.Size()
-
-		files = append(files, FileEntry{rootDir, path, size})
+	walkErr := WalkFiles(rootDir, func(file FileEntry) error {
+		files = append(files, file)
 		return nil
 	})
 
@@ -80,7 +60,7 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	}
 	id := time.Now().String()
 	transaction := Transaction{TType: TAction, Operations: operations, ID: id}
-	logToHistory(transaction)
+	LogToHistory(transaction)
 	if err := cleanEmptyFolders(rootDir); err != nil {
 		return nil, err
 	}
@@ -137,18 +117,8 @@ func cleanEmptyFolders(dir string) error {
 
 func TopLargestFiles(rootDir string, n int) error {
 	var entries []FileEntry
-	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || strings.HasPrefix(d.Name(), ".") {
-			return nil
-		}
-		f, err := d.Info()
-		if err != nil {
-			return err
-		}
-		entries = append(entries, FileEntry{rootDir, path, f.Size()})
+	err := WalkFiles(rootDir, func(file FileEntry) error {
+		entries = append(entries, file)
 		return nil
 	})
 	if err != nil {
@@ -166,9 +136,30 @@ func TopLargestFiles(rootDir string, n int) error {
 
 	limit := min(len(entries), n)
 	fmt.Printf("Top %d largest files in %s:\n", limit, rootDir)
-	for i := range limit {
-		fmt.Printf("%d. %s (%s)\n", i+1, filepath.Base(entries[i].SourcePath), humanReadable(entries[i].Size))
-	}
-
 	return nil
+}
+
+func WalkFiles(rootDir string, fn func(FileEntry) error) error {
+	return filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		relFolder, _ := filepath.Rel(rootDir, filepath.Dir(path))
+		relFolder = filepath.Clean(relFolder)
+		slashCnt := strings.Count(relFolder, "/")
+		if RecurseLevel >= 0 && slashCnt > RecurseLevel {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if strings.Contains(path, "/.") || strings.Contains(path, "\\.") || d.IsDir() {
+			return nil
+		}
+
+		stat, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		size := stat.Size()
+		return fn(FileEntry{rootDir, path, size})
+	})
 }

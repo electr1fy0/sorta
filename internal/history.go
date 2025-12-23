@@ -8,12 +8,12 @@ import (
 	"strings"
 )
 
-func logToHistory(transaction Transaction) error {
-	home, err := os.UserHomeDir()
+func LogToHistory(transaction Transaction) error {
+	sortaDir, err := GetSortaDir()
 	if err != nil {
 		return err
 	}
-	historyPath := filepath.Join(home, ".sorta", "history")
+	historyPath := filepath.Join(sortaDir, "history")
 	f, err := os.OpenFile(historyPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func Undo(path string) error {
 	}
 
 	t.TType = TUndo
-	logToHistory(t)
+	LogToHistory(t)
 	var executor Executor
 	for _, op := range t.Operations {
 		op.File.SourcePath, op.DestPath = op.DestPath, op.File.SourcePath
@@ -48,8 +48,11 @@ func Undo(path string) error {
 }
 
 func readLastTransaction(root string) (Transaction, error) {
-	home, err := os.UserHomeDir()
-	historyPath := filepath.Join(home, ".sorta", "history")
+	sortaDir, err := GetSortaDir()
+	if err != nil {
+		return Transaction{}, err
+	}
+	historyPath := filepath.Join(sortaDir, "history")
 	var transaction Transaction
 
 	data, err := os.ReadFile(historyPath)
@@ -81,11 +84,11 @@ func readLastTransaction(root string) (Transaction, error) {
 }
 
 func GetHistory() ([]Transaction, error) {
-	home, err := os.UserHomeDir()
+	sortaDir, err := GetSortaDir()
 	if err != nil {
 		return nil, err
 	}
-	historyPath := filepath.Join(home, ".sorta", "history")
+	historyPath := filepath.Join(sortaDir, "history")
 
 	data, err := os.ReadFile(historyPath)
 	if err != nil {
