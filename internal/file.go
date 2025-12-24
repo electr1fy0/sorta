@@ -22,7 +22,7 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	var files []FileEntry
 
 	if RecurseLevel >= 0 && runtime.GOOS == "windows" {
-		return result, fmt.Errorf("--recurselevel is only available on unix")
+		return result, fmt.Errorf("--recurselevel is currently only available on unix")
 	}
 
 	walkErr := WalkFiles(rootDir, func(file FileEntry) error {
@@ -34,7 +34,10 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 		return nil, walkErr
 	}
 
-	operations, _ = sorter.Decide(files)
+	operations, err := sorter.Decide(files)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, op := range operations {
 		moved, err := executor.Execute(op)

@@ -12,10 +12,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 	file, err := os.Open(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if err := createConfig(configPath); err != nil {
-				return nil, err
-			}
-			return nil, fmt.Errorf("config file created at %s. please add keywords to it", configPath)
+			return nil, fmt.Errorf("config file not found at %s", configPath)
 		}
 		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
@@ -73,7 +70,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 
 }
 
-func createConfig(path string) error {
+func CreateConfig(path string) error {
 	content := []byte(`// Config file for 'sorta'
 // Config version: v0.4
 //

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
@@ -23,23 +24,21 @@ var rootCmd = &cobra.Command{
 	Use:   "sorta",
 	Short: "CLI to sort files based on keywords and extensions",
 	Long:  "A file organization tool that can sort by extension, config rules, or find duplicates.",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		dir, err := validateDir(args[0])
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		home, err := os.UserHomeDir()
 		if err != nil {
 			return err
 		}
-
-		configPath, err = internal.ExpandPath(configPath)
-		if err != nil {
-			return err
+		globalConfig := filepath.Join(home, ".sorta", "config")
+		if _, err := os.Stat(globalConfig); os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(globalConfig), 0755); err != nil {
+				return err
+			}
+			if err := internal.CreateConfig(globalConfig); err != nil {
+				return err
+			}
 		}
-
-		configSorter, err := internal.NewConfigSorter(dir, configPath)
-		if err != nil {
-			return fmt.Errorf("error creating config sorter: %w", err)
-		}
-		return runSort(dir, configSorter, configSorter.GetBlacklist())
+		return nil
 	},
 }
 
