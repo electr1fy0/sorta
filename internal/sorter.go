@@ -1,11 +1,41 @@
 package internal
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
+func NewConfigSorter(folderPath, configPath, inline string) (*ConfigSorter, error) {
+
+	inline = strings.TrimSpace(inline)
+
+	if inline != "" {
+		var confData ConfigData
+		confData.Foldernames = make([]string, 0, 1)
+		confData.Matchers = make([][]Matcher, 0, 1)
+
+		parts := strings.Split(inline, "=")
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("failed to parse inline syntax: %s", inline)
+		}
+		foldername := strings.TrimSpace(parts[0])
+		keywords := strings.Split(parts[1], ",")
+
+		confData.Foldernames = append(confData.Foldernames, foldername)
+
+		matchers := make([]Matcher, len(keywords))
+		for i, k := range keywords {
+			matchers[i] = Matcher{Raw: strings.TrimSpace(k)}
+		}
+		confData.Matchers = append(confData.Matchers, matchers)
+
+		return &ConfigSorter{&confData}, nil
+	}
+
+	var confData *ConfigData
+
 	sortaDir, err := GetSortaDir()
 	if err != nil {
 		return nil, err
@@ -16,7 +46,6 @@ func NewConfigSorter(folderPath, configPath string) (*ConfigSorter, error) {
 		localPath = filepath.Join(folderPath, ".sorta", "config")
 	}
 
-	var confData *ConfigData
 	_, err = os.Open(localPath)
 	if err != nil {
 		if os.IsNotExist(err) {

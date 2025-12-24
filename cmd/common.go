@@ -13,22 +13,27 @@ const (
 	ansiCyan  = "[36m"
 )
 
-func validateDir(path string) (string, error) {
-	if filepath.IsAbs(path) {
-		path = filepath.Clean(path)
-	} else {
-		var err error
-		path, err = internal.ExpandPath(path)
+func resolvePath(path string) (string, error) {
+	var err error
+	path, err = internal.ExpandPath(path)
+	if err != nil {
+		return "", err
+	}
+
+	if !filepath.IsAbs(path) {
+	home, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		if !filepath.IsAbs(path) {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return "", fmt.Errorf("cannot determine home directory: %w", err)
-			}
-			path = filepath.Join(home, path)
-		}
+		path = filepath.Join(home, path)
+	}
+	return filepath.Clean(path), nil
+}
+
+func validateDir(path string) (string, error) {
+	path, err := resolvePath(path)
+	if err != nil {
+		return "", err
 	}
 
 	info, err := os.Stat(path)

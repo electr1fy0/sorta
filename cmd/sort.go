@@ -27,19 +27,23 @@ var sortCmd = &cobra.Command{
 			}
 		}
 
-		configPath, err = internal.ExpandPath(configPath)
+		configPath, err = resolvePath(configPath)
 		if err != nil {
 			return err
 		}
 
-		configSorter, err := internal.NewConfigSorter(dir, configPath)
+		configSorter, err := internal.NewConfigSorter(dir, configPath, inline)
 		if err != nil {
 			return fmt.Errorf("error creating config sorter: %w", err)
 		}
+
 		return runSort(dir, configSorter, configSorter.GetBlacklist())
 	},
 }
 
+var inline string
+
 func init() {
 	rootCmd.AddCommand(sortCmd)
+	sortCmd.PersistentFlags().StringVar(&inline, "inline", "", "Skip the config and read a single line from the flag's value")
 }

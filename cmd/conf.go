@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -22,12 +21,10 @@ var configListCmd = &cobra.Command{
 	Short:   "List all configuration rules",
 	Aliases: []string{"ls", "show"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if strings.HasPrefix(configPath, "~") {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("cannot determine home directory: %w", err)
-			}
-			configPath = filepath.Join(home, configPath[1:])
+		var err error
+		configPath, err = resolvePath(configPath)
+		if err != nil {
+			return err
 		}
 
 		cfg, err := internal.ParseConfig(configPath)
@@ -88,12 +85,10 @@ var configRemoveCmd = &cobra.Command{
 }
 
 func manageConfig(foldername, operation string, keywords []string) error {
-	if strings.HasPrefix(configPath, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("cannot determine home directory: %w", err)
-		}
-		configPath = filepath.Join(home, configPath[1:])
+	var err error
+	configPath, err = resolvePath(configPath)
+	if err != nil {
+		return err
 	}
 
 	switch operation {
