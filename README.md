@@ -163,8 +163,9 @@ sorta config path
 # Aliases: p, location
 # Shows the path of the active configuration file
 
-sorta config add <foldername> "<keyword1>, <keyword2>..."
+sorta config add "<foldername> = <keyword1>, <keyword2>..."
 # Aliases: new, a
+# Example: sorta config add "Images = jpg, png, gif"
 
 sorta config remove <foldername>
 # Aliases: rm, del

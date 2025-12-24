@@ -31,7 +31,6 @@ var configListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 		fmt.Fprintln(w, "FOLDER\tMATCHERS")
 		fmt.Fprintln(w, "------\t--------")
@@ -105,7 +104,7 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		if _, err := f.WriteString(line); err != nil {
 			return fmt.Errorf("error writing to config file: %w", err)
 		}
-		fmt.Printf("Added rule: %s=%s\n", foldername, keyLine)
+		fmt.Printf("Added rule: %s=%s to %s\n", foldername, keyLine, configPath)
 		return nil
 	case "remove":
 		data, err := os.ReadFile(configPath)
@@ -136,7 +135,7 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		if err := os.WriteFile(configPath, []byte(sb.String()), 0600); err != nil {
 			return fmt.Errorf("error writing updated config file: %w", err)
 		}
-		fmt.Printf("Removed rule for foldername: %s\n", keywords[0])
+		fmt.Printf("Removed rule for foldername: %s from %s\n", keywords[0], configPath)
 		return nil
 	default:
 		return fmt.Errorf("unknown operation: %s", operation)
