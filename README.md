@@ -70,6 +70,11 @@ sorta organize Desktop/messy-folder --dry-run
 Uses `~/.sorta/config` to define sorting rules. Creates a default config if it doesn't exist.
 Users can manually edit the file at `~/.sorta/config`.
 
+**Flags:**
+
+- `--inline "Folder=ext1,ext2"`: Skip config file and use a single one-off rule.
+  Example: `sorta sort . --inline "Images=jpg,png"`
+
 **Config format:**
 
 ```
@@ -146,7 +151,7 @@ Shows top 5 largest files.
 
 ```bash
 sorta init <directory>
-# Aliases: setup, create
+# Aliases: setup, create, initialize
 ```
 
 Creates a local `.sorta/` folder inside the target directory with copies of your default config and prompt. This allows per-directory configuration.
@@ -187,9 +192,14 @@ sorta undo <directory>
 
 ## Flags
 
+### Global
 - `--dry-run` - Preview changes without moving files
 - `--config-path` - Path to config file (default `~/.sorta/config`)
 - `--recurse-level` - Level of recursion to perform in the directory (Unix only)
+
+### Command Specific
+- `--inline` (sort): Define a one-off rule, ignoring config file. Format: `"Folder=kw1,kw2"`.
+- `--nuke` (duplicates): Permanently delete duplicate files found.
 
 ## Examples
 
