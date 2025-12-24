@@ -6,9 +6,10 @@ import (
 )
 
 var lrgCmd = &cobra.Command{
-	Short: "List top 5 largest files",
-	Use:   "lrg <directory>",
-	Args:  cobra.ExactArgs(1),
+	Short:   "List top 5 largest files",
+	Use:     "large <directory>",
+	Aliases: []string{"lrg"},
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])
 		if err != nil {
