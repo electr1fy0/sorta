@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
+	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -15,8 +17,54 @@ var configCmd = &cobra.Command{
 	Aliases: []string{"conf", "cfg", "settings"},
 }
 
+var configListCmd = &cobra.Command{
+	Use:     "list",
+	Short:   "List all configuration rules",
+	Aliases: []string{"ls", "show"},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if strings.HasPrefix(configPath, "~") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("cannot determine home directory: %w", err)
+			}
+			configPath = filepath.Join(home, configPath[1:])
+		}
+
+		cfg, err := internal.ParseConfig(configPath)
+		if err != nil {
+			return err
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+		fmt.Fprintln(w, "FOLDER\tMATCHERS")
+		fmt.Fprintln(w, "------\t--------")
+
+		for i, folder := range cfg.Foldernames {
+			var matchers []string
+			for _, m := range cfg.Matchers[i] {
+				if m.Regex != nil {
+					matchers = append(matchers, fmt.Sprintf("regex(%s)", m.Regex.String()))
+				} else {
+					matchers = append(matchers, m.Raw)
+				}
+			}
+			fmt.Fprintf(w, "%s\t%s\n", folder, strings.Join(matchers, ", "))
+		}
+
+		if len(cfg.Blacklist) > 0 {
+			fmt.Fprintln(w, "\nBLACKLISTED FOLDERS")
+			fmt.Fprintln(w, "-------------------")
+			for _, b := range cfg.Blacklist {
+				fmt.Fprintln(w, b)
+			}
+		}
+
+		return w.Flush()
+	},
+}
+
 var configAddCmd = &cobra.Command{
-	Use:     `add <foldername> "<keyword1>, <keyword2>..."`,
+	Use:     `add <foldername> ="<keyword1>, <keyword2>..."`,
 	Short:   "Add new folder-to-keyword rule to the config file",
 	Aliases: []string{"new", "a"},
 	Args:    cobra.ExactArgs(2),
@@ -24,7 +72,6 @@ var configAddCmd = &cobra.Command{
 		foldername := args[0]
 		keywordsStr := args[1]
 		keywords := strings.Split(keywordsStr, ",")
-		fmt.Println(args, len(args))
 		return manageConfig(foldername, "add", keywords)
 	},
 }
@@ -104,4 +151,5 @@ func init() {
 
 	configCmd.AddCommand(configAddCmd)
 	configCmd.AddCommand(configRemoveCmd)
+	configCmd.AddCommand(configListCmd)
 }

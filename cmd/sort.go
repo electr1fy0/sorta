@@ -20,8 +20,7 @@ var sortCmd = &cobra.Command{
 			return err
 		}
 
-		if !cmd.Flags().Changed("config") {
-			// Check if the target directory has a local config
+		if !cmd.Flags().Changed("configPath") {
 			localConfig := filepath.Join(dir, ".sorta", "config")
 			if _, err := os.Stat(localConfig); err == nil {
 				configPath = localConfig

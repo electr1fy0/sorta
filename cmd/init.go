@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
@@ -22,10 +23,36 @@ var initCmd = &cobra.Command{
 		home, err := os.UserHomeDir()
 		defaultPath := filepath.Join(home, ".sorta")
 
+		defaultConf, err := os.Open(filepath.Join(defaultPath, "config"))
+		if err != nil {
+			return err
+		}
+		defaultPrompt, err := os.Open(filepath.Join(defaultPath, "prompt"))
+		if err != nil {
+			return err
+		}
+		localConf, err := os.Open(filepath.Join(localPath, "config"))
+		if err != nil {
+			return err
+		}
+		localPrompt, err := os.Open(filepath.Join(localPath, "prompt"))
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(localConf, defaultConf)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(localPrompt, defaultPrompt)
+		if err != nil {
+			return err
+		}
 		configData, err := os.ReadFile(filepath.Join(defaultPath, "config"))
 		promptData, err := os.ReadFile(filepath.Join(defaultPath, "prompt"))
 		err = os.WriteFile(filepath.Join(localPath, "config"), configData, 0644)
 		err = os.WriteFile(filepath.Join(localPath, "prompt"), promptData, 0644)
+
 		return err
 	},
 }
