@@ -61,9 +61,10 @@ sudo mv sorta /usr/local/bin/
 ### Sort by keywords (default)
 
 ```bash
-sorta <directory>
-sorta ~/Downloads
-sorta Desktop/messy-folder --dry
+sorta sort <directory>
+# Aliases: s, organize
+sorta s ~/Downloads
+sorta organize Desktop/messy-folder --dry-run
 ```
 
 Uses `~/.sorta/config` to define sorting rules. Creates a default config if it doesn't exist.
@@ -101,7 +102,8 @@ Use `*` to match everything that doesn't match other rules. Specific keywords al
 
 ```bash
 sorta rename <directory>
-sorta rename ~/Downloads --dry
+# Aliases: rn, mv
+sorta rn ~/Downloads --dry-run
 ```
 
 Uses Gemini to sanitize filenames into a concise, readable format (Title_Snake_Case).
@@ -123,8 +125,9 @@ Note: All filenames are sent to Gemini for sanitization for the rename command. 
 ### Find duplicates
 
 ```bash
-sorta dupl <directory>
-sorta dupl ~/Downloads --dry
+sorta duplicates <directory>
+# Aliases: dupl, dedupe, dd
+sorta dd ~/Downloads --dry-run
 ```
 
 Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to delete the duplicates folder.
@@ -132,7 +135,9 @@ Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occu
 ### List largest files
 
 ```bash
-sorta lrg <directory>
+sorta large <directory>
+# Aliases: lrg, top, big
+sorta top ~/Downloads
 ```
 
 Shows top 5 largest files.
@@ -141,31 +146,75 @@ Shows top 5 largest files.
 
 ```bash
 sorta init <directory>
+# Aliases: setup, create
 ```
 
 Creates a local `.sorta/` folder inside the target directory with copies of your default config and prompt. This allows per-directory configuration.
+When running `sort` in this directory, `sorta` will automatically detect and use this local configuration.
 
 ### Manage config
 
 ```bash
+sorta config list
+# Aliases: ls, show
+# Lists all rules in a neat table
+
+sorta config path
+# Aliases: p, location
+# Shows the path of the active configuration file
+
 sorta config add <foldername> "<keyword1>, <keyword2>..."
+# Aliases: new, a
+
 sorta config remove <foldername>
+# Aliases: rm, del
 ```
 
-Edits `~/.sorta/config`.
-Users may also manually edit the config at the same path.
+Edits `~/.sorta/config` by default. If a local config exists in the current directory, or if `--config-path` is provided, it edits that instead.
+
+### History & Undo
+
+```bash
+sorta history
+# Aliases: log, ls
+# View past operations
+
+sorta undo <directory>
+# Aliases: u, revert
+# Revert the last operation in the specified directory
+```
 
 ## Flags
 
-- `--dry` - Preview changes without moving files
-- `--config` - Path to config file (default `~/.sorta/config`)
-- `--recurselevel` - Level of recursion to perform in the directory (Unix only)
+- `--dry-run` - Preview changes without moving files
+- `--config-path` - Path to config file (default `~/.sorta/config`)
+- `--recurse-level` - Level of recursion to perform in the directory (Unix only)
 
-## Notes
+## Examples
 
-- Moves files, doesn't copy
-- Ignores hidden files (starting with `.`)
-- Auto-cleans empty directories
-- Creates destination folders as needed
-- Prompts to undo after sorting
-- Foldernames higher up the config are prioritized in conflicts.
+**1. One-off sorting with custom config:**
+
+```bash
+sorta sort . --config-path ./my-special-config
+```
+
+**2. Quickly organizing a cluttered Downloads folder:**
+
+```bash
+sorta s ~/Downloads
+```
+
+**3. Renaming messy course materials:**
+
+```bash
+export GEMINI_API_KEY=your_key
+sorta rn ~/Uni/Semester1 --dry-run
+# Check output, then run without --dry-run
+sorta rn ~/Uni/Semester1
+```
+
+**4. Cleaning up duplicate photos:**
+
+```bash
+sorta dd ~/Photos --nuke
+```

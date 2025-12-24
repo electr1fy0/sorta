@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"io"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -13,48 +13,40 @@ var initCmd = &cobra.Command{
 	Short:   "Initialize directory with the default config and prompt",
 	Aliases: []string{"setup", "create", "initialize"},
 	Args:    cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		dir, err := validateDir(args[0])
-		if err != nil {
-			return err
-		}
-		localPath := filepath.Join(dir, ".sorta")
-		err = os.Mkdir(localPath, 0755)
-		home, err := os.UserHomeDir()
-		defaultPath := filepath.Join(home, ".sorta")
-
-		defaultConf, err := os.Open(filepath.Join(defaultPath, "config"))
-		if err != nil {
-			return err
-		}
-		defaultPrompt, err := os.Open(filepath.Join(defaultPath, "prompt"))
-		if err != nil {
-			return err
-		}
-		localConf, err := os.Open(filepath.Join(localPath, "config"))
-		if err != nil {
-			return err
-		}
-		localPrompt, err := os.Open(filepath.Join(localPath, "prompt"))
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(localConf, defaultConf)
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(localPrompt, defaultPrompt)
-		if err != nil {
-			return err
-		}
-		configData, err := os.ReadFile(filepath.Join(defaultPath, "config"))
-		promptData, err := os.ReadFile(filepath.Join(defaultPath, "prompt"))
-		err = os.WriteFile(filepath.Join(localPath, "config"), configData, 0644)
-		err = os.WriteFile(filepath.Join(localPath, "prompt"), promptData, 0644)
-
-		return err
-	},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir, err := validateDir(args[0])
+			if err != nil {
+				return err
+			}
+			localPath := filepath.Join(dir, ".sorta")
+			if err := os.Mkdir(localPath, 0755); err != nil {
+				if os.IsExist(err) {
+					return fmt.Errorf("directory already initialized: %s", localPath)
+				}
+				return err
+			}
+			home, err := os.UserHomeDir()
+			defaultPath := filepath.Join(home, ".sorta")
+	
+			configData, err := os.ReadFile(filepath.Join(defaultPath, "config"))
+			if err != nil {
+				return fmt.Errorf("failed to read default config: %w", err)
+			}
+			promptData, err := os.ReadFile(filepath.Join(defaultPath, "prompt"))
+			if err != nil {
+				return fmt.Errorf("failed to read default prompt: %w", err)
+			}
+	
+			if err := os.WriteFile(filepath.Join(localPath, "config"), configData, 0644); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(localPath, "prompt"), promptData, 0644); err != nil {
+				return err
+			}
+	
+			fmt.Printf("Initialized sorta in: %s\n", localPath)
+			return nil
+		},
 }
 
 func init() {

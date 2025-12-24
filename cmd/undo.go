@@ -14,8 +14,11 @@ var undoCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir := args[0]
-		fmt.Println(dir)
-		return internal.Undo(dir)
+		if err := internal.Undo(dir); err != nil {
+			return err
+		}
+		fmt.Printf("Undid last operation in: %s\n", dir)
+		return nil
 	},
 }
 

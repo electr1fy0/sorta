@@ -61,14 +61,16 @@ var configListCmd = &cobra.Command{
 }
 
 var configAddCmd = &cobra.Command{
-	Use:     `add <foldername> ="<keyword1>, <keyword2>..."`,
+	Use:     `add "<foldername> = <keyword1>, <keyword2>..."`,
 	Short:   "Add new folder-to-keyword rule to the config file",
 	Aliases: []string{"new", "a"},
-	Args:    cobra.ExactArgs(2),
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		foldername := args[0]
-		keywordsStr := args[1]
-		keywords := strings.Split(keywordsStr, ",")
+		parts := strings.Split(args[0], "=")
+
+		foldername := strings.TrimSpace(parts[0])
+		keywords := strings.Split(parts[1], ",")
+
 		return manageConfig(foldername, "add", keywords)
 	},
 }
