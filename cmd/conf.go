@@ -141,10 +141,26 @@ func manageConfig(foldername, operation string, keywords []string) error {
 	}
 }
 
+var configPathCmd = &cobra.Command{
+	Use:     "path",
+	Short:   "Show the path of the configuration file being used",
+	Aliases: []string{"p", "location"},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var err error
+		configPath, err = resolvePath(configPath)
+		if err != nil {
+			return err
+		}
+		fmt.Println(configPath)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 
 	configCmd.AddCommand(configAddCmd)
 	configCmd.AddCommand(configRemoveCmd)
 	configCmd.AddCommand(configListCmd)
+	configCmd.AddCommand(configPathCmd)
 }
