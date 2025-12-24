@@ -10,19 +10,16 @@ import (
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Manage sorta configuration",
+	Use:     "config",
+	Short:   "Manage sorta configuration",
+	Aliases: []string{"conf", "cfg", "settings"},
 }
 
-var (
-	isLocal  bool
-	isGlobal bool
-)
-
 var configAddCmd = &cobra.Command{
-	Use:   `add <foldername> "<keyword1>, <keyword2>..."`,
-	Short: "Add new folder-to-keyword rule to the config file",
-	Args:  cobra.ExactArgs(2),
+	Use:     `add <foldername> "<keyword1>, <keyword2>..."`,
+	Short:   "Add new folder-to-keyword rule to the config file",
+	Aliases: []string{"new", "a"},
+	Args:    cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		foldername := args[0]
 		keywordsStr := args[1]
@@ -33,9 +30,10 @@ var configAddCmd = &cobra.Command{
 }
 
 var configRemoveCmd = &cobra.Command{
-	Use:   "remove <foldername>",
-	Short: "Remove a folder-to-keyword rule from the config file",
-	Args:  cobra.ExactArgs(1),
+	Use:     "remove <foldername>",
+	Short:   "Remove a folder-to-keyword rule from the config file",
+	Aliases: []string{"rm", "del", "delete"},
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keywords := args[0:]
 		return manageConfig("", "remove", keywords)
@@ -43,28 +41,6 @@ var configRemoveCmd = &cobra.Command{
 }
 
 func manageConfig(foldername, operation string, keywords []string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("cannot determine working directory: %w", err)
-	}
-
-	localConfig := filepath.Join(cwd, ".sorta", "config")
-
-	switch {
-	case isGlobal:
-		configPath = "~/.sorta/config"
-
-	case isLocal:
-		configPath = localConfig
-
-	case !rootCmd.Flags().Changed("config"):
-		if _, err := os.Stat(localConfig); err == nil {
-			configPath = localConfig
-		} else {
-			return fmt.Errorf("no config found; use --config or --global")
-		}
-	}
-
 	if strings.HasPrefix(configPath, "~") {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -75,7 +51,7 @@ func manageConfig(foldername, operation string, keywords []string) error {
 
 	switch operation {
 	case "add":
-		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			return fmt.Errorf("error opening config file: %w", err)
 		}
@@ -124,9 +100,6 @@ func manageConfig(foldername, operation string, keywords []string) error {
 }
 
 func init() {
-	configCmd.PersistentFlags().BoolVarP(&isLocal, "local", "l", false, "Use local config (.sorta/config)")
-	configCmd.PersistentFlags().BoolVarP(&isGlobal, "global", "g", false, "Use global config (~/.sorta/config)")
-
 	rootCmd.AddCommand(configCmd)
 
 	configCmd.AddCommand(configAddCmd)

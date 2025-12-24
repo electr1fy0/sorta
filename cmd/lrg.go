@@ -8,7 +8,7 @@ import (
 var lrgCmd = &cobra.Command{
 	Short:   "List top 5 largest files",
 	Use:     "large <directory>",
-	Aliases: []string{"lrg"},
+	Aliases: []string{"lrg", "top", "big"},
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])

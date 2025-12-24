@@ -10,9 +10,10 @@ import (
 )
 
 var sortCmd = &cobra.Command{
-	Use:   "sort <directory>",
-	Short: "Sort files based on keywords and extensions",
-	Args:  cobra.ExactArgs(1),
+	Use:     "sort <directory>",
+	Short:   "Sort files based on keywords and extensions",
+	Aliases: []string{"s", "organize"},
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])
 		if err != nil {
@@ -20,12 +21,10 @@ var sortCmd = &cobra.Command{
 		}
 
 		if !cmd.Flags().Changed("config") {
-			cwd, err := os.Getwd()
-			if err == nil {
-				localConfig := filepath.Join(cwd, ".sorta", "config")
-				if _, err := os.Stat(localConfig); err == nil {
-					configPath = localConfig
-				}
+			// Check if the target directory has a local config
+			localConfig := filepath.Join(dir, ".sorta", "config")
+			if _, err := os.Stat(localConfig); err == nil {
+				configPath = localConfig
 			}
 		}
 

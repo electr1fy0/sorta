@@ -9,7 +9,7 @@ var duplCmd = &cobra.Command{
 	Use:     "duplicates <directory>",
 	Short:   "Filter out duplicate files",
 	Args:    cobra.ExactArgs(1),
-	Aliases: []string{"dupl"},
+	Aliases: []string{"dupl", "dedupe", "dd"},
 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])

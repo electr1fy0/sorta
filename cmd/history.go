@@ -10,9 +10,10 @@ import (
 )
 
 var historyCmd = &cobra.Command{
-	Use:   "history",
-	Short: "View operation history",
-	Long:  "Displays a list of past sort operations recorded by sorta.",
+	Use:     "history",
+	Short:   "View operation history",
+	Aliases: []string{"log", "ls"},
+	Long:    "Displays a list of past sort operations recorded by sorta.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		transactions, err := internal.GetHistory()
 		if err != nil {

@@ -9,12 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// flag logic (to be implemented)
-// 8 bits
-// 0th bit = dryRun
-// 1st bit = interactive (disabled for now)
-// 3rd bit = recurseLevel
-
 var (
 	dryRun     bool
 	configPath string

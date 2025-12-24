@@ -8,9 +8,10 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init <directory>",
-	Short: "Initialize directory with the default config and prompt",
-	Args:  cobra.ExactArgs(1),
+	Use:     "init <directory>",
+	Short:   "Initialize directory with the default config and prompt",
+	Aliases: []string{"setup", "create"},
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])
 		if err != nil {

@@ -6,9 +6,10 @@ import (
 )
 
 var renameCmd = &cobra.Command{
-	Short: "Let Gemini rename your files",
-	Use:   "rename <directory>",
-	Args:  cobra.ExactArgs(1),
+	Short:   "Let Gemini rename your files",
+	Use:     "rename <directory>",
+	Aliases: []string{"rn"},
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])
 		if err != nil {
