@@ -120,10 +120,10 @@ func (m *model) updateViewport() {
 		switch op.OpType {
 		case internal.OpMove:
 			opType = "MOVE"
-			line = fmt.Sprintf("%s %s %s %s -> %s", cursor, checked, opType, srcName, relDest)
+			line = fmt.Sprintf("%s %s %s %s -> %s (folder)", cursor, checked, opType, srcName, filepath.Dir(relDest))
 		case internal.OpDedupe:
 			opType = "DEDUPE"
-			line = fmt.Sprintf("%s %s %s %s -> duplicates folder", cursor, checked, opType, srcName)
+			line = fmt.Sprintf("%s %s %s %s -> duplicates (folder)", cursor, checked, opType, srcName)
 		case internal.OpDelete:
 			opType = "DEL"
 			line = fmt.Sprintf("%s %s %s %s", cursor, checked, opType, srcName)
