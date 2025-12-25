@@ -67,8 +67,8 @@ sorta s ~/Downloads
 sorta organize Desktop/messy-folder --dry-run
 ```
 
-Uses `~/.sorta/config` to define sorting rules. Creates a default config if it doesn't exist.
-Users can manually edit the file at `~/.sorta/config`.
+Sorts files based on rules defined in `~/.sorta/config`.
+Before moving any files, `sorta` will display a summary of planned operations and ask for confirmation.
 
 **Flags:**
 
@@ -108,10 +108,11 @@ Use `*` to match everything that doesn't match other rules. Specific keywords al
 ```bash
 sorta rename <directory>
 # Aliases: rn, mv
-sorta rn ~/Downloads --dry-run
+sorta rn ~/Downloads
 ```
 
 Uses Gemini to sanitize filenames into a concise, readable format (Title_Snake_Case).
+Shows a preview of proposed renames and asks for confirmation before proceeding.
 
 **Features:**
 
@@ -132,10 +133,11 @@ Note: All filenames are sent to Gemini for sanitization for the rename command. 
 ```bash
 sorta duplicates <directory>
 # Aliases: dupl, dedupe, dd
-sorta dd ~/Downloads --dry-run
+sorta dd ~/Downloads
 ```
 
 Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to delete the duplicates folder.
+Will prompt for confirmation before moving or deleting files.
 
 ### List largest files
 
@@ -193,7 +195,7 @@ sorta undo <directory>
 ## Flags
 
 ### Global
-- `--dry-run` - Preview changes without moving files
+- `--dry-run` - Preview changes and exit (skips confirmation prompt)
 - `--config-path` - Path to config file (default `~/.sorta/config`)
 - `--recurse-level` - Level of recursion to perform in the directory (Unix only)
 
@@ -219,8 +221,6 @@ sorta s ~/Downloads
 
 ```bash
 export GEMINI_API_KEY=your_key
-sorta rn ~/Uni/Semester1 --dry-run
-# Check output, then run without --dry-run
 sorta rn ~/Uni/Semester1
 ```
 
