@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"text/tabwriter"
 
@@ -14,6 +16,37 @@ var configCmd = &cobra.Command{
 	Use:     "config",
 	Short:   "Manage sorta configuration",
 	Aliases: []string{"conf", "cfg", "settings"},
+}
+
+var configEditCmd = &cobra.Command{
+	Use:     "edit",
+	Short:   "Open config file in default editor",
+	Aliases: []string{"e", "open"},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		path, err := resolvePath(configPath)
+		if err != nil {
+			return err
+		}
+
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = os.Getenv("VISUAL")
+		}
+		if editor == "" {
+			if runtime.GOOS == "windows" {
+				editor = "notepad"
+			} else {
+				editor = "vim"
+			}
+		}
+
+		c := exec.Command(editor, path)
+		c.Stdin = os.Stdin
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+
+		return c.Run()
+	},
 }
 
 var configListCmd = &cobra.Command{
@@ -164,4 +197,5 @@ func init() {
 	configCmd.AddCommand(configRemoveCmd)
 	configCmd.AddCommand(configListCmd)
 	configCmd.AddCommand(configPathCmd)
+	configCmd.AddCommand(configEditCmd)
 }
