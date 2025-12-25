@@ -60,17 +60,28 @@ sudo mv sorta /usr/local/bin/
 
 For all commands that accept a `<directory>` argument, relative paths are resolved against the **Current Working Directory (CWD)**. Paths starting with `~` (e.g., `~/Downloads`) are expanded to the user's home directory.
 
+### Interactive Review
+
+When running in a terminal, `sorta` presents an interactive list of planned operations before executing them.
+
+- **Navigation:** Use `↑` / `↓` (or `k` / `j`) to scroll.
+- **Selection:** Press `Space` to toggle an individual file operation.
+- **Batch:** Press `a` to toggle all operations.
+- **Confirm:** Press `Enter` to proceed with the selected operations.
+- **Cancel:** Press `q` or `Esc` to abort.
+
 ### Sort by keywords (default)
 
 ```bash
-sorta sort <directory>
+sorta sort [directory]
 # Aliases: s, organize
 sorta s ~/Downloads
 sorta organize Desktop/messy-folder --dry-run
 ```
 
 Sorts files based on rules defined in `~/.sorta/config`.
-Before moving any files, `sorta` will display a summary of planned operations and ask for confirmation.
+If the directory argument is omitted, `sorta` will prompt for it.
+You will be able to review and select which files to move before any changes are made.
 
 **Flags:**
 
@@ -109,12 +120,12 @@ Use `*` to match everything that doesn't match other rules. Specific keywords al
 
 ```bash
 sorta rename <directory>
-# Aliases: rn, mv
+# Aliases: rn
 sorta rn ~/Downloads
 ```
 
 Uses Gemini to sanitize filenames into a concise, readable format (Title_Snake_Case).
-Shows a preview of proposed renames and asks for confirmation before proceeding.
+You can interactively review and deselect specific renames before they are applied.
 
 **Features:**
 
@@ -133,13 +144,13 @@ Note: All filenames are sent to Gemini for sanitization for the rename command. 
 ### Find duplicates
 
 ```bash
-sorta duplicates <directory>
+sorta duplicates [directory]
 # Aliases: dupl, dedupe, dd
 sorta dd ~/Downloads
 ```
 
 Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to delete the duplicates folder.
-Will prompt for confirmation before moving or deleting files.
+Includes an interactive review step to verify files before moving or deleting. If directory is omitted, it will be prompted for.
 
 ### List largest files
 
@@ -177,7 +188,11 @@ sorta config add "<foldername> = <keyword1>, <keyword2>..."
 # Example: sorta config add "Images = jpg, png, gif"
 
 sorta config remove <foldername>
-# Aliases: rm, del
+# Aliases: rm, del, delete
+
+sorta config edit
+# Aliases: e, open
+# Opens the config file in your default editor ($EDITOR or $VISUAL)
 ```
 
 Edits `~/.sorta/config` by default. If a local config exists in the current directory, or if `--config-path` is provided, it edits that instead.
@@ -189,9 +204,16 @@ sorta history
 # Aliases: log, ls
 # View past operations
 
-sorta undo <directory>
+sorta undo [directory]
 # Aliases: u, revert
 # Revert the last operation in the specified directory
+```
+
+### Version
+
+```bash
+sorta version
+# Print the version number of sorta
 ```
 
 ## Flags

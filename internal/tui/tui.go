@@ -137,7 +137,6 @@ func (m *model) updateViewport() {
 	}
 	m.viewport.SetContent(sb.String())
 
-	// Scroll to keep cursor in view
 	if m.cursor >= m.viewport.YOffset+m.viewport.Height {
 		m.viewport.YOffset = m.cursor - m.viewport.Height + 1
 	} else if m.cursor < m.viewport.YOffset {
