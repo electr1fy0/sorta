@@ -165,8 +165,16 @@ func WalkFiles(rootDir string, fn func(FileEntry) error) error {
 	return filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		relFolder, _ := filepath.Rel(rootDir, filepath.Dir(path))
 		relFolder = filepath.Clean(relFolder)
-		slashCnt := strings.Count(relFolder, "/")
-		if RecurseLevel >= 0 && slashCnt > RecurseLevel {
+
+		sep := os.PathSeparator
+
+		depth := strings.Count(relFolder, string(sep))
+		if relFolder != "." && relFolder != ".." {
+			depth++
+		}
+
+		fmt.Printf("relfolder: %s %c: %d\n", path, sep, depth)
+		if depth > RecurseLevel {
 			return nil
 		}
 		if err != nil {

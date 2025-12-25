@@ -72,7 +72,7 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 
 func CreateConfig(path string) error {
 	content := []byte(`// Config file for 'sorta'
-// Config version: v0.4
+// Config version: v0.4.2
 //
 // Each line defines how files should be sorted.
 // Format: folderName = key1,key2,key3
@@ -81,11 +81,12 @@ func CreateConfig(path string) error {
 // - key1, key2, key3, etc are keywords to match in file names.
 // - You can list one or many keywords after the '='.
 // - Lines starting with '//' are comments and ignored.
-// - Add a ! followed by a foldername to blacklist the folder from being touched by sorta
+// - Add a ! followed by a foldername to blacklist the folder from being touched by the sort command.
+// - rename and duplicate commands do not look at the config as of sorta v0.6.X.
 // - * as a keyword matches all filenames which don't contain the other keywords
 // - . as a foldernames means the root folder that you passed to sorta.
 // - To flatten the subfolder tree, use . = *
-// - Use regex for kewyords. Wrap your expression with: regex()
+// - Use regex for kewyords. Wrap your expression with: regex(). No quotes are required.
 // - foldername can also be a relative folderpath. e.g. foo/bar/oof = rab creates a folder tree.
 //
 // Example:

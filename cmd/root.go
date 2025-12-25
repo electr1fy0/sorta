@@ -46,5 +46,5 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Do a dry run without making changes")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config-path", "~/.sorta/config", "Path to config file")
-	rootCmd.PersistentFlags().IntVar(&internal.RecurseLevel, "recurse-level", -1, "Level of recursion to perform in the directory")
+	rootCmd.PersistentFlags().IntVar(&internal.RecurseLevel, "recurse-level", 1<<10, "Level of recursion to perform in the directory")
 }
