@@ -57,11 +57,20 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 	fmt.Println("Analyzing files...")
 
 	ops, err := internal.PlanOperations(dir, sorter)
+	cleanedOps := make([]internal.FileOperation, 0, len(ops))
+
+	for _, op := range ops {
+		if op.DestPath == op.File.SourcePath {
+			continue
+		}
+		cleanedOps = append(cleanedOps, op)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to plan operations: %w", err)
 	}
 
-	if len(ops) == 0 {
+	if len(cleanedOps) == 0 {
 		fmt.Println("No operations needed.")
 		return nil
 	}
@@ -69,7 +78,7 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 	moves := 0
 	deletes := 0
 	skips := 0
-	for _, op := range ops {
+	for _, op := range cleanedOps {
 		switch op.OpType {
 		case internal.OpMove:
 			moves++
@@ -80,7 +89,7 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 		}
 	}
 
-	fmt.Printf("Found %d operations:\n", len(ops))
+	fmt.Printf("Found %d operations:\n", len(cleanedOps))
 	if moves > 0 {
 		fmt.Printf("- %d files to move\n", moves)
 	}
@@ -98,7 +107,7 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 
 	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
 		var tuiOps []internal.FileOperation
-		for _, op := range ops {
+		for _, op := range cleanedOps {
 			if op.OpType != internal.OpSkip {
 				tuiOps = append(tuiOps, op)
 			}
@@ -114,8 +123,8 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 			fmt.Println("Operation cancelled.")
 			return nil
 		}
-		ops = selectedOps
-		if len(ops) == 0 {
+		cleanedOps = selectedOps
+		if len(cleanedOps) == 0 {
 			fmt.Println("No operations selected.")
 			return nil
 		}
@@ -136,7 +145,7 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 	}
 	reporter := &internal.Reporter{DryRun: false}
 
-	res, err := internal.ApplyOperations(dir, ops, executor, reporter)
+	res, err := internal.ApplyOperations(dir, cleanedOps, executor, reporter)
 	if err != nil {
 		return fmt.Errorf("failed to apply operations: %w", err)
 	}
