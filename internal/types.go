@@ -30,6 +30,8 @@ type OperationType int
 
 const (
 	OpMove OperationType = iota
+	OpRename
+	OpDedupe
 	OpDelete
 	OpSkip
 	OpUndo
@@ -81,6 +83,8 @@ type Renamer struct {
 
 type SortResult struct {
 	Moved   int
+	Renamed int
+	Deduped int
 	Skipped int
 	Deleted int
 	Errors  []error

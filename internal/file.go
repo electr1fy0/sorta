@@ -64,6 +64,10 @@ func ApplyOperations(rootDir string, operations []FileOperation, executor *Execu
 			switch op.OpType {
 			case OpMove:
 				result.Moved++
+			case OpDedupe:
+				result.Deduped++
+			case OpRename:
+				result.Renamed++
 			case OpDelete:
 				result.Deleted++
 			}
@@ -80,10 +84,14 @@ func ApplyOperations(rootDir string, operations []FileOperation, executor *Execu
 	}
 
 	if DuplNuke {
+		duplicatePath := filepath.Join(rootDir, "duplicates")
+		duplicates, _ := os.ReadDir(duplicatePath)
+
+		result.Deleted += len(duplicates)
 		if err := os.RemoveAll(filepath.Join(rootDir, "duplicates")); err != nil {
 			return result, err
 		}
-		result.Deleted++
+
 	}
 	return result, nil
 }

@@ -113,6 +113,9 @@ func NewRenamer() *Renamer {
 }
 
 func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
+	if os.Getenv("GEMINI_API_KEY") == "" {
+		return nil, fmt.Errorf("Missing GEMINI_API_KEY environment variable")
+	}
 	if len(files) == 0 {
 		return nil, nil
 	}
@@ -193,7 +196,7 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 		destPath := filepath.Join(filepath.Dir(files[i].SourcePath), newName)
 
 		op := FileOperation{
-			OpType:   OpMove,
+			OpType:   OpRename,
 			File:     files[i],
 			DestPath: destPath,
 			Size:     files[i].Size,

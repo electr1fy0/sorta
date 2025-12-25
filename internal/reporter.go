@@ -7,7 +7,14 @@ import (
 
 func (r *SortResult) PrintSummary() {
 	fmt.Println("--------------------------------------------------")
-	fmt.Printf("  %sMoved:%s   %d\n", ansiGreen, ansiReset, r.Moved)
+	if r.Moved > 0 {
+		fmt.Printf("  %sMoved:%s %d\n", ansiGreen, ansiReset, r.Moved)
+	} else if r.Deduped > 0 {
+		fmt.Printf("  %sDeduped:%s %d\n", ansiGreen, ansiReset, r.Deduped)
+	} else if r.Renamed > 0 {
+		fmt.Printf("  %sRenamed:%s %d\n", ansiGreen, ansiReset, r.Renamed)
+	}
+
 	fmt.Printf("  %sDeleted:%s %d\n", ansiRed, ansiReset, r.Deleted)
 	fmt.Printf("  %sSkipped:%s %d\n", ansiYellow, ansiReset, r.Skipped)
 	if len(r.Errors) > 0 {

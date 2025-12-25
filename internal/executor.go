@@ -13,7 +13,7 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 	}
 
 	switch op.OpType {
-	case OpMove:
+	case OpMove, OpDedupe, OpRename:
 		if op.DestPath == op.File.SourcePath {
 			return false, nil
 		}

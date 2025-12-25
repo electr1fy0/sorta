@@ -66,7 +66,7 @@ func (d *DuplicateFinder) Decide(files []FileEntry) ([]FileOperation, error) {
 				for i := 1; i < len(fGroup); i++ {
 					f := fGroup[i]
 					ops = append(ops, FileOperation{
-						OpType:   OpMove,
+						OpType:   OpDedupe,
 						File:     f,
 						DestPath: filepath.Join(f.RootDir, "duplicates", (filepath.Base(f.SourcePath))),
 					})

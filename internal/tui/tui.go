@@ -109,16 +109,6 @@ func (m *model) updateViewport() {
 			checked = "[✓]"
 		}
 
-		opType := ""
-		switch op.OpType {
-		case internal.OpMove:
-			opType = "MOVE"
-		case internal.OpDelete:
-			opType = "DEL "
-		case internal.OpSkip:
-			opType = "SKIP"
-		}
-
 		relDest, _ := filepath.Rel(m.dir, op.DestPath)
 		if relDest == "" {
 			relDest = op.DestPath
@@ -126,7 +116,24 @@ func (m *model) updateViewport() {
 
 		srcName := filepath.Base(op.File.SourcePath)
 
-		line := fmt.Sprintf("%s %s %s %s -> %s", cursor, checked, opType, srcName, relDest)
+		opType, line := "", ""
+		switch op.OpType {
+		case internal.OpMove:
+			opType = "MOVE"
+			line = fmt.Sprintf("%s %s %s %s -> %s", cursor, checked, opType, srcName, relDest)
+		case internal.OpDedupe:
+			opType = "DEDUPE"
+			line = fmt.Sprintf("%s %s %s %s -> duplicates folder", cursor, checked, opType, srcName)
+		case internal.OpDelete:
+			opType = "DEL"
+			line = fmt.Sprintf("%s %s %s %s", cursor, checked, opType, srcName)
+		case internal.OpRename:
+			opType = "RENAME"
+			line = fmt.Sprintf("%s %s %s %s -> %s", cursor, checked, opType, srcName, filepath.Base(op.DestPath))
+		case internal.OpSkip:
+			opType = "SKIP"
+			line = fmt.Sprintf("%s %s %s %s", cursor, checked, opType, srcName)
+		}
 
 		if m.cursor == i {
 			sb.WriteString(selectedItemStyle.Render(line))
