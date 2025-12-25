@@ -73,7 +73,7 @@ func ApplyOperations(rootDir string, operations []FileOperation, executor *Execu
 		}
 	}
 	id := time.Now().String()
-	transaction := Transaction{TType: TAction, Operations: operations, ID: id}
+	transaction := Transaction{TType: TAction, Operations: operations, ID: id, Irreversible: DuplNuke}
 	LogToHistory(transaction)
 	if err := cleanEmptyFolders(rootDir); err != nil {
 		return result, err

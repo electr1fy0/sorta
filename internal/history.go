@@ -41,6 +41,10 @@ func Undo(path string) error {
 		return err
 	}
 
+	if t.Irreversible {
+		return fmt.Errorf("cannot undo irreversible operation (e.g. used --nuke)")
+	}
+
 	t.TType = TUndo
 	LogToHistory(t)
 	var executor Executor

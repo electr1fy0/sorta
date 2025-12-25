@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/tui"
+	"github.com/mattn/go-isatty"
 )
 
 const (
@@ -94,12 +96,37 @@ func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 		return nil
 	}
 
-	fmt.Print("\nDo you want to proceed? [y/N]: ")
-	reader := bufio.NewReader(os.Stdin)
-	ans, _ := reader.ReadString('\n')
-	if strings.ToLower(strings.TrimSpace(ans)) != "y" {
-		fmt.Println("Operation cancelled.")
-		return nil
+	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		var tuiOps []internal.FileOperation
+		for _, op := range ops {
+			if op.OpType != internal.OpSkip {
+				tuiOps = append(tuiOps, op)
+			}
+		}
+
+		if len(tuiOps) == 0 {
+			fmt.Println("No changes to make.")
+			return nil
+		}
+
+		selectedOps, err := tui.SelectOperations(dir, tuiOps)
+		if err != nil {
+			fmt.Println("Operation cancelled.")
+			return nil
+		}
+		ops = selectedOps
+		if len(ops) == 0 {
+			fmt.Println("No operations selected.")
+			return nil
+		}
+	} else {
+		fmt.Print("\nDo you want to proceed? [y/N]: ")
+		reader := bufio.NewReader(os.Stdin)
+		ans, _ := reader.ReadString('\n')
+		if strings.ToLower(strings.TrimSpace(ans)) != "y" {
+			fmt.Println("Operation cancelled.")
+			return nil
+		}
 	}
 
 	executor := &internal.Executor{

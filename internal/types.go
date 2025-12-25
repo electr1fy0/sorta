@@ -43,9 +43,10 @@ const (
 )
 
 type Transaction struct {
-	ID         string
-	TType      TransactionType
-	Operations []FileOperation
+	ID           string
+	TType        TransactionType
+	Operations   []FileOperation
+	Irreversible bool
 }
 
 type FileEntry struct {
