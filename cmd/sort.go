@@ -1,21 +1,39 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
 )
 
+func getDir(args []string) (string, error) {
+	var dirLine string
+	if len(args) < 1 {
+		fmt.Printf("Enter directory for sorta to run on: ")
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+		dirLine = input
+	} else {
+		dirLine = args[0]
+	}
+	return validateDir(strings.TrimSpace(dirLine))
+}
+
 var sortCmd = &cobra.Command{
 	Use:     "sort <directory>",
 	Short:   "Sort files based on keywords and extensions",
 	Aliases: []string{"s", "organize"},
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dir, err := validateDir(args[0])
+		dir, err := getDir(args)
 		if err != nil {
 			return err
 		}
