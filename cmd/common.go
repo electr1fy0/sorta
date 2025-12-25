@@ -21,17 +21,14 @@ func resolvePath(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	if !filepath.IsAbs(path) {
-		home, err := os.UserHomeDir()
+		path, err = filepath.Abs(path)
 		if err != nil {
-			return "", fmt.Errorf("cannot determine home directory: %w", err)
+			return "", fmt.Errorf("cannot determine absolute path: %w", err)
 		}
-		path = filepath.Join(home, path)
 	}
 	return filepath.Clean(path), nil
 }
-
 func validateDir(path string) (string, error) {
 	path, err := resolvePath(path)
 	if err != nil {

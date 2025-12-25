@@ -29,11 +29,11 @@ func LogToHistory(transaction Transaction) error {
 
 func Undo(path string) error {
 	if !filepath.IsAbs(path) {
-		home, err := os.UserHomeDir()
+		var err error
+		path, err = filepath.Abs(path)
 		if err != nil {
 			return err
 		}
-		path = filepath.Join(home, path)
 	}
 	t, err := readLastTransaction(path)
 
