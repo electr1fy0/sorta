@@ -152,7 +152,7 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		var sb strings.Builder
 		found := false
 		for _, line := range lines {
-			if strings.HasPrefix(line, keywords[0]+" =") {
+			if strings.HasPrefix(line, keywords[0]+" =") || strings.HasPrefix(line, "!"+keywords[0]) {
 				found = true
 				continue
 			}

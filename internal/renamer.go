@@ -121,6 +121,7 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 	}
 
 	filenames := make([]string, len(files))
+
 	for i, f := range files {
 		filenames[i] = filepath.Base(f.SourcePath)
 	}
