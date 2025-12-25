@@ -173,7 +173,6 @@ func WalkFiles(rootDir string, fn func(FileEntry) error) error {
 			depth++
 		}
 
-		fmt.Printf("relfolder: %s %c: %d\n", path, sep, depth)
 		if depth > RecurseLevel {
 			return nil
 		}
