@@ -2,11 +2,14 @@ package internal
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+var ErrAlreadyUndone = errors.New("last operation already undone")
 
 func LogToHistory(transaction Transaction) error {
 	sortaDir, err := GetSortaDir()
@@ -33,6 +36,7 @@ func Undo(path string) error {
 		path = filepath.Join(home, path)
 	}
 	t, err := readLastTransaction(path)
+
 	if err != nil {
 		return err
 	}
@@ -74,7 +78,7 @@ func readLastTransaction(root string) (Transaction, error) {
 		if len(transaction.Operations) > 0 && transaction.Operations[0].File.RootDir == root {
 			if transaction.TType == TUndo {
 
-				return Transaction{}, fmt.Errorf("last operation in %s was already undone", root)
+				return Transaction{}, fmt.Errorf("last operation in %s was already undone:%w", root, ErrAlreadyUndone)
 			}
 
 			return transaction, err

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -17,7 +18,7 @@ var undoCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir := args[0]
-		
+
 		fmt.Printf("Are you sure you want to undo the last operation in %s? [y/N]: ", dir)
 		reader := bufio.NewReader(os.Stdin)
 		ans, _ := reader.ReadString('\n')
@@ -27,8 +28,13 @@ var undoCmd = &cobra.Command{
 		}
 
 		if err := internal.Undo(dir); err != nil {
+			if errors.Is(err, internal.ErrAlreadyUndone) {
+				fmt.Printf("Last operation in %s already undone\n", dir)
+				return nil
+			}
 			return err
 		}
+
 		fmt.Printf("Undid last operation in: %s\n", dir)
 		return nil
 	},
