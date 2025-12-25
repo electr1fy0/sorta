@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
 )
@@ -21,7 +23,7 @@ func resolvePath(path string) (string, error) {
 	}
 
 	if !filepath.IsAbs(path) {
-	home, err := os.UserHomeDir()
+		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("cannot determine home directory: %w", err)
 		}
@@ -53,17 +55,66 @@ func validateDir(path string) (string, error) {
 
 func runSort(dir string, sorter internal.Sorter, blacklist []string) error {
 	fmt.Printf("%sDir:%s %s\n", ansiCyan, ansiReset, dir)
+	fmt.Println("Analyzing files...")
+
+	ops, err := internal.PlanOperations(dir, sorter)
+	if err != nil {
+		return fmt.Errorf("failed to plan operations: %w", err)
+	}
+
+	if len(ops) == 0 {
+		fmt.Println("No operations needed.")
+		return nil
+	}
+
+	moves := 0
+	deletes := 0
+	skips := 0
+	for _, op := range ops {
+		switch op.OpType {
+		case internal.OpMove:
+			moves++
+		case internal.OpDelete:
+			deletes++
+		case internal.OpSkip:
+			skips++
+		}
+	}
+
+	fmt.Printf("Found %d operations:\n", len(ops))
+	if moves > 0 {
+		fmt.Printf("- %d files to move\n", moves)
+	}
+	if deletes > 0 {
+		fmt.Printf("- %d files to delete\n", deletes)
+	}
+	if skips > 0 {
+		fmt.Printf("- %d files skipped (no match)\n", skips)
+	}
+
+	if dryRun {
+		fmt.Println("\nDry run complete. No changes made.")
+		return nil
+	}
+
+	fmt.Print("\nDo you want to proceed? [y/N]: ")
+	reader := bufio.NewReader(os.Stdin)
+	ans, _ := reader.ReadString('\n')
+	if strings.ToLower(strings.TrimSpace(ans)) != "y" {
+		fmt.Println("Operation cancelled.")
+		return nil
+	}
 
 	executor := &internal.Executor{
-		DryRun:     dryRun,
+		DryRun:     false,
 		Blacklist:  blacklist,
 		Operations: make([]internal.FileOperation, 0),
 	}
-	reporter := &internal.Reporter{DryRun: dryRun}
+	reporter := &internal.Reporter{DryRun: false}
 
-	res, err := internal.FilterFiles(dir, sorter, executor, reporter)
+	res, err := internal.ApplyOperations(dir, ops, executor, reporter)
 	if err != nil {
-		return fmt.Errorf("failed to filter files: %w", err)
+		return fmt.Errorf("failed to apply operations: %w", err)
 	}
 
 	res.PrintSummary()

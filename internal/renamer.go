@@ -195,7 +195,7 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 		op := FileOperation{
 			OpType:   OpMove,
 			File:     files[i],
-			DestPath: filepath.Join(files[i].SourcePath, destPath),
+			DestPath: destPath,
 			Size:     files[i].Size,
 		}
 		ops = append(ops, op)

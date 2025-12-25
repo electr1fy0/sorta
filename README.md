@@ -103,7 +103,7 @@ Others=*
 
 Use `*` to match everything that doesn't match other rules. Specific keywords always take priority. Rules higher in the config are matched first.
 
-### Smart Rename
+### Smart Rename (beta)
 
 ```bash
 sorta rename <directory>

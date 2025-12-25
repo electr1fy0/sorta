@@ -17,12 +17,19 @@ var (
 )
 
 func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Reporter) (*SortResult, error) {
-	result := &SortResult{}
-	var operations []FileOperation
+	operations, err := PlanOperations(rootDir, sorter)
+	if err != nil {
+		return nil, err
+	}
+
+	return ApplyOperations(rootDir, operations, executor, reporter)
+}
+
+func PlanOperations(rootDir string, sorter Sorter) ([]FileOperation, error) {
 	var files []FileEntry
 
 	if RecurseLevel >= 0 && runtime.GOOS == "windows" {
-		return result, fmt.Errorf("--recurselevel is currently only available on unix")
+		return nil, fmt.Errorf("--recurselevel is currently only available on unix")
 	}
 
 	walkErr := WalkFiles(rootDir, func(file FileEntry) error {
@@ -38,7 +45,11 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	if err != nil {
 		return nil, err
 	}
+	return operations, nil
+}
 
+func ApplyOperations(rootDir string, operations []FileOperation, executor *Executor, reporter *Reporter) (*SortResult, error) {
+	result := &SortResult{}
 	for _, op := range operations {
 		moved, err := executor.Execute(op)
 		if moved || err != nil {
@@ -65,12 +76,12 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 	transaction := Transaction{TType: TAction, Operations: operations, ID: id}
 	LogToHistory(transaction)
 	if err := cleanEmptyFolders(rootDir); err != nil {
-		return nil, err
+		return result, err
 	}
 
 	if DuplNuke {
 		if err := os.RemoveAll(filepath.Join(rootDir, "duplicates")); err != nil {
-			return nil, err
+			return result, err
 		}
 		result.Deleted++
 	}
