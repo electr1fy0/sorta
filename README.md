@@ -58,6 +58,8 @@ sudo mv sorta /usr/local/bin/
 
 ## Usage
 
+For all commands that accept a `<directory>` argument, relative paths are resolved against the **Current Working Directory (CWD)**. Paths starting with `~` (e.g., `~/Downloads`) are expanded to the user's home directory.
+
 ### Sort by keywords (default)
 
 ```bash
@@ -196,7 +198,7 @@ sorta undo <directory>
 
 ### Global
 - `--dry-run` - Preview changes and exit (skips confirmation prompt)
-- `--config-path` - Path to config file (default `~/.sorta/config`)
+- `--config-path` - Path to config file (default `~/.sorta/config`). Relative paths are resolved against the CWD; paths starting with `~` are expanded to the home directory.
 - `--recurse-level` - Level of recursion to perform in the directory (Unix only)
 
 ### Command Specific
@@ -214,7 +216,8 @@ sorta sort . --config-path ./my-special-config
 **2. Quickly organizing a cluttered Downloads folder:**
 
 ```bash
-sorta s ~/Downloads
+export GEMINI_API_KEY=your_key
+sorta rn ~/Uni/Semester1
 ```
 
 **3. Renaming messy course materials:**
