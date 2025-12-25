@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -27,7 +28,19 @@ func NewConfigSorter(folderPath, configPath, inline string) (*ConfigSorter, erro
 
 		matchers := make([]Matcher, len(keywords))
 		for i, k := range keywords {
-			matchers[i] = Matcher{Raw: strings.TrimSpace(k)}
+			k = strings.TrimSpace(k)
+			if trimmed, ok := strings.CutPrefix(k, "regex("); ok {
+				if trimmed, ok = strings.CutSuffix(trimmed, ")"); ok {
+					fmt.Println(k)
+					regex, err := regexp.Compile(trimmed)
+					if err != nil {
+						return nil, err
+					}
+					matchers[i] = Matcher{Regex: regex}
+				}
+			} else {
+				matchers[i] = Matcher{Raw: strings.TrimSpace(k)}
+			}
 		}
 		confData.Matchers = append(confData.Matchers, matchers)
 
