@@ -4,9 +4,64 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/electr1fy0/sorta/templates"
 )
+
+func LoadConfig(explicitPath, targetDir string) (*ConfigData, string, error) {
+	path, err := ResolveConfigPath(explicitPath, targetDir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	cfg, err := ParseConfig(path)
+	if err != nil {
+		return nil, path, err
+	}
+	return cfg, path, nil
+}
+
+func ResolveConfigPath(explicitPath, targetDir string) (string, error) {
+	if explicitPath != "" {
+		return explicitPath, nil
+	}
+
+	if targetDir != "" {
+		localPath := filepath.Join(targetDir, ".sorta", "config")
+		if _, err := os.Stat(localPath); err == nil {
+			return localPath, nil
+		}
+	}
+
+	globalDir, err := GetSortaDir()
+	if err != nil {
+		return "", err
+	}
+	globalPath := filepath.Join(globalDir, "config")
+
+	if _, err := os.Stat(globalPath); os.IsNotExist(err) {
+		if err := createGlobalConfig(globalDir, globalPath); err != nil {
+			return "", fmt.Errorf("failed to create global config: %w", err)
+		}
+	}
+
+	return globalPath, nil
+}
+
+func createGlobalConfig(dir, path string) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(path, []byte(templates.DefaultConfig), 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func ParseConfig(configPath string) (*ConfigData, error) {
 	file, err := os.Open(configPath)
@@ -67,43 +122,6 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 	}
 
 	return &configData, nil
-
-}
-
-func CreateConfig(path string) error {
-	content := []byte(`// Config file for 'sorta'
-// Config version: v0.4.2
-//
-// Each line defines how files should be sorted.
-// Format: folderName = key1,key2,key3
-//
-// - folderName is the target folder for those files.
-// - key1, key2, key3, etc are keywords to match in file names.
-// - You can list one or many keywords after the '='.
-// - Lines starting with '//' are comments and ignored.
-// - Add a ! followed by a foldername to blacklist the folder from being touched by the sort command.
-// - rename and duplicate commands do not look at the config as of sorta v0.6.X.
-// - * as a keyword matches all filenames which don't contain the other keywords
-// - . as a foldernames means the root folder that you passed to sorta.
-// - To flatten the subfolder tree, use . = *
-// - Use regex for kewyords. Wrap your expression with: regex(). No quotes are required.
-// - foldername can also be a relative folderpath. e.g. foo/bar/oof = rab creates a folder tree.
-//
-// Example:
-//
-// Finance=invoice,bill,txt
-// Music=track,song
-// Study=notes,book
-// 2024-Papers=regex(^PAP.*2024$)
-// others=*
-//
-// Important folder that sorta won't move from:
-// !my-secret-folder`)
-
-	if err := os.WriteFile(path, content, 0644); err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
-	}
-	return nil
 }
 
 func categorize(configData ConfigData, filename string) string {

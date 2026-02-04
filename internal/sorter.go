@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -49,30 +48,13 @@ func NewConfigSorter(folderPath, configPath, inline string) (*ConfigSorter, erro
 
 	var confData *ConfigData
 
-	sortaDir, err := GetSortaDir()
+	var err error
+	confData, _, err = LoadConfig(configPath, folderPath)
 	if err != nil {
 		return nil, err
 	}
-	defaultPath := filepath.Join(sortaDir, "config")
-	var localPath string
-	if configPath == defaultPath {
-		localPath = filepath.Join(folderPath, ".sorta", "config")
-	}
-
-	_, err = os.Open(localPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			confData, err = ParseConfig(configPath)
-		} else {
-			return nil, err
-		}
-	} else {
-		confData, err = ParseConfig(localPath)
-	}
-
-	if err != nil {
-		return nil, err
-	}
+	// Log which config is being used if needed, or maybe just rely on LoadConfig
+	// fmt.Printf("Using config: %s\n", loadedPath) // Optional debug
 
 	return &ConfigSorter{
 		configData: confData,

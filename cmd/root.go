@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/electr1fy0/sorta/internal"
 	"github.com/spf13/cobra"
@@ -18,22 +17,6 @@ var rootCmd = &cobra.Command{
 	Use:   "sorta",
 	Short: "CLI to sort files based on keywords and extensions",
 	Long:  "A file organization tool that can sort by extension, config rules, or find duplicates.",
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		globalConfig := filepath.Join(home, ".sorta", "config")
-		if _, err := os.Stat(globalConfig); os.IsNotExist(err) {
-			if err := os.MkdirAll(filepath.Dir(globalConfig), 0755); err != nil {
-				return err
-			}
-			if err := internal.CreateConfig(globalConfig); err != nil {
-				return err
-			}
-		}
-		return nil
-	},
 }
 
 func Execute() {
@@ -45,6 +28,6 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Do a dry run without making changes")
-	rootCmd.PersistentFlags().StringVar(&configPath, "config-path", "~/.sorta/config", "Path to config file")
+	rootCmd.PersistentFlags().StringVar(&configPath, "config-path", "", "Path to config file (default: ~/.sorta/config)")
 	rootCmd.PersistentFlags().IntVar(&internal.RecurseLevel, "recurse-level", 1<<10, "Level of recursion to perform in the directory")
 }

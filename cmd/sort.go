@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/electr1fy0/sorta/internal"
@@ -38,16 +37,11 @@ var sortCmd = &cobra.Command{
 			return err
 		}
 
-		if !cmd.Flags().Changed("config-path") {
-			localConfig := filepath.Join(dir, ".sorta", "config")
-			if _, err := os.Stat(localConfig); err == nil {
-				configPath = localConfig
+		if configPath != "" {
+			configPath, err = resolvePath(configPath)
+			if err != nil {
+				return err
 			}
-		}
-
-		configPath, err = resolvePath(configPath)
-		if err != nil {
-			return err
 		}
 
 		configSorter, err := internal.NewConfigSorter(dir, configPath, inline)

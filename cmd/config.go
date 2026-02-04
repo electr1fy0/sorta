@@ -24,7 +24,15 @@ var configEditCmd = &cobra.Command{
 	Short:   "Open config file in default editor",
 	Aliases: []string{"e", "open"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		path, err := resolvePath(configPath)
+		if configPath != "" {
+			var err error
+			configPath, err = resolvePath(configPath)
+			if err != nil {
+				return err
+			}
+		}
+
+		path, err := internal.ResolveConfigPath(configPath, ".")
 		if err != nil {
 			return err
 		}
@@ -67,22 +75,19 @@ var configInitCmd = &cobra.Command{
 			}
 			return err
 		}
-		home, err := os.UserHomeDir()
-		defaultPath := filepath.Join(home, ".sorta")
 
-		configData, err := os.ReadFile(filepath.Join(defaultPath, "config"))
+		// Ensure global config exists and get its path
+		globalPath, err := internal.ResolveConfigPath("", "")
 		if err != nil {
-			return fmt.Errorf("failed to read default config: %w", err)
-		}
-		promptData, err := os.ReadFile(filepath.Join(defaultPath, "prompt"))
-		if err != nil {
-			return fmt.Errorf("failed to read default prompt: %w", err)
-		}
-
-		if err := os.WriteFile(filepath.Join(localPath, "config"), configData, 0644); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(localPath, "prompt"), promptData, 0644); err != nil {
+
+		configData, err := os.ReadFile(globalPath)
+		if err != nil {
+			return fmt.Errorf("failed to read global config: %w", err)
+		}
+		
+		if err := os.WriteFile(filepath.Join(localPath, "config"), configData, 0644); err != nil {
 			return err
 		}
 
@@ -96,13 +101,15 @@ var configListCmd = &cobra.Command{
 	Short:   "List all configuration rules",
 	Aliases: []string{"ls", "show"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		configPath, err = resolvePath(configPath)
-		if err != nil {
-			return err
+		if configPath != "" {
+			var err error
+			configPath, err = resolvePath(configPath)
+			if err != nil {
+				return err
+			}
 		}
 
-		cfg, err := internal.ParseConfig(configPath)
+		cfg, _, err := internal.LoadConfig(configPath, ".")
 		if err != nil {
 			return err
 		}
@@ -161,15 +168,22 @@ var configRemoveCmd = &cobra.Command{
 }
 
 func manageConfig(foldername, operation string, keywords []string) error {
-	var err error
-	configPath, err = resolvePath(configPath)
+	if configPath != "" {
+		var err error
+		configPath, err = resolvePath(configPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	path, err := internal.ResolveConfigPath(configPath, ".")
 	if err != nil {
 		return err
 	}
 
 	switch operation {
 	case "add":
-		f, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			return fmt.Errorf("error opening config file: %w", err)
 		}
@@ -179,10 +193,10 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		if _, err := f.WriteString(line); err != nil {
 			return fmt.Errorf("error writing to config file: %w", err)
 		}
-		fmt.Printf("Added rule: %s=%s to %s\n", foldername, keyLine, configPath)
+		fmt.Printf("Added rule: %s=%s to %s\n", foldername, keyLine, path)
 		return nil
 	case "remove":
-		data, err := os.ReadFile(configPath)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("config file not found, nothing to remove")
@@ -207,10 +221,10 @@ func manageConfig(foldername, operation string, keywords []string) error {
 			return fmt.Errorf("no rule found for folder: %s", keywords[0])
 		}
 
-		if err := os.WriteFile(configPath, []byte(sb.String()), 0600); err != nil {
+		if err := os.WriteFile(path, []byte(sb.String()), 0600); err != nil {
 			return fmt.Errorf("error writing updated config file: %w", err)
 		}
-		fmt.Printf("Removed rule for foldername: %s from %s\n", keywords[0], configPath)
+		fmt.Printf("Removed rule for foldername: %s from %s\n", keywords[0], path)
 		return nil
 	default:
 		return fmt.Errorf("unknown operation: %s", operation)
@@ -222,12 +236,19 @@ var configPathCmd = &cobra.Command{
 	Short:   "Show the path of the configuration being used globally",
 	Aliases: []string{"p", "location"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-		configPath, err = resolvePath(configPath)
+		if configPath != "" {
+			var err error
+			configPath, err = resolvePath(configPath)
+			if err != nil {
+				return err
+			}
+		}
+
+		path, err := internal.ResolveConfigPath(configPath, ".")
 		if err != nil {
 			return err
 		}
-		fmt.Println(configPath)
+		fmt.Println(path)
 		return nil
 	},
 }

@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -27,10 +26,6 @@ func FilterFiles(rootDir string, sorter Sorter, executor *Executor, reporter *Re
 
 func PlanOperations(rootDir string, sorter Sorter) ([]FileOperation, error) {
 	var files []FileEntry
-
-	if RecurseLevel >= 0 && runtime.GOOS == "windows" {
-		return nil, fmt.Errorf("--recurselevel is currently only available on unix")
-	}
 
 	walkErr := WalkFiles(rootDir, func(file FileEntry) error {
 		files = append(files, file)
@@ -116,7 +111,6 @@ func cleanEmptyFolders(dir string) error {
 			}
 
 			if len(subEntries) == 0 {
-
 				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 
 					return fmt.Errorf("failed to remove empty dir, %q: %w", path, err)
