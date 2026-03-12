@@ -91,15 +91,18 @@ You will be able to review and select which files to move before any changes are
 **Config format:**
 
 ```
-# Lines starting with '#' or '//' are comments
+# Lines starting with '#' or '//' are comments (only full-line comments are supported)
 FolderName=keyword1,keyword2
 AnotherFolder=another,set,of,keywords
 
 # Keywords can be regular expressions
 OneMoreFolder=regex(your-regular-expression)
 
-# FolderName can also be a relative folder path
-foo/bar/baz = keyword  # creates a nested folder tree
+# FolderName can also be a relative folder path (creates a nested folder tree)
+foo/bar/baz=keyword
+
+# Use '.' as the folder name to keep files in the root directory
+.=doc,docx
 
 # Match all remaining files
 Misc=*
@@ -115,6 +118,10 @@ Others=*
 ```
 
 Use `*` to match everything that doesn't match other rules. Specific keywords always take priority. Rules higher in the config are matched first.
+
+> **Note:** Only full-line comments (lines starting with `#` or `//`) are supported. Inline comments on rule lines are not stripped and will be treated as part of the keyword.
+
+Hidden files and directories (names starting with `.`) are always skipped during scanning.
 
 Ignore patterns:
 
@@ -144,8 +151,6 @@ You can interactively review and deselect specific renames before they are appli
 
 Requires `GEMINI_API_KEY` environment variable set.
 
-Advanced users can manually modify the prompt at `~/.sorta/prompt`.
-
 Note: All filenames are sent to Gemini for sanitization for the rename command. Nothing else is shared.
 
 ### Find duplicates
@@ -156,7 +161,7 @@ sorta duplicates [directory]
 sorta dd ~/Downloads
 ```
 
-Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to permanently delete the duplicates folder instead.
+Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to permanently delete the duplicate files instead of moving them. **Operations using `--nuke` cannot be undone.**
 Duplicate targets are deterministic and collision-safe: `<name>_<hash8>_<path6>.<ext>`.
 Includes an interactive review step to verify files before moving or deleting. If directory is omitted, it will be prompted for.
 Duplicate detection uses a bounded parallel hashing pipeline and stores a metadata hash cache in `~/.sorta/hash-cache.json` for faster repeated scans.
@@ -234,23 +239,6 @@ sorta undo [directory]
 # Revert the last operation in the specified directory
 ```
 
-### Web UI (Local)
-
-```bash
-sorta serve
-# Serves a local dashboard at http://127.0.0.1:8080
-```
-
-**Flags:**
-
-- `--addr` - Address to bind the web UI server (default: `127.0.0.1:8080`)
-
-**Endpoints:**
-
-- `GET /` - Lightweight dashboard
-- `GET /api/status` - Latest status and last operation summary
-- `GET /api/history` - Recent history (use `?limit=N` to specify number of entries)
-
 ### Version
 
 ```bash
@@ -263,7 +251,7 @@ sorta version
 ### Global
 - `--dry-run` - Preview changes and exit (skips confirmation prompt)
 - `--config-path` - Path to config file (default `~/.sorta/config`). Relative paths are resolved against the CWD; paths starting with `~` are expanded to the home directory.
-- `--recurse-level` - Maximum folder depth to scan (default: unlimited)
+- `--recurse-level` - Maximum folder depth to scan (default: 1024)
 
 ### Command Specific
 - `--inline` (sort): Define a one-off rule, ignoring config file. Format: `"Folder=kw1,kw2"`.
