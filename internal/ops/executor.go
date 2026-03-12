@@ -1,25 +1,21 @@
-package internal
+package ops
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
+
+	"github.com/electr1fy0/sorta/internal/core"
 )
 
-func (e *Executor) Execute(op FileOperation) (bool, error) {
-	if e.DryRun {
-		return false, nil
-	}
+type Executor struct {
+	Operations []core.FileOperation
+}
 
+func (e *Executor) Execute(op core.FileOperation) (bool, error) {
 	switch op.OpType {
-	case OpMove, OpDedupe, OpRename:
+	case core.OpMove, core.OpDedupe, core.OpRename:
 		if op.DestPath == op.File.SourcePath {
-			return false, nil
-		}
-		srcDir := filepath.Dir(op.File.SourcePath)
-		srcDirName := filepath.Base(srcDir)
-		if slices.Contains(e.Blacklist, srcDirName) {
 			return false, nil
 		}
 		destDir := filepath.Dir(op.DestPath)
@@ -34,7 +30,7 @@ func (e *Executor) Execute(op FileOperation) (bool, error) {
 		e.Operations = append(e.Operations, op)
 		return true, nil
 
-	case OpDelete:
+	case core.OpDelete:
 		if err := os.Remove(op.File.SourcePath); err != nil {
 			return false, fmt.Errorf("failed to delete file: %w", err)
 		}

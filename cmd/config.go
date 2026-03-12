@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +32,7 @@ var configEditCmd = &cobra.Command{
 			}
 		}
 
-		path, err := internal.ResolveConfigPath(configPath, ".")
+		path, err := config.ResolveConfigPath(configPath, ".")
 		if err != nil {
 			return err
 		}
@@ -76,8 +76,7 @@ var configInitCmd = &cobra.Command{
 			return err
 		}
 
-		// Ensure global config exists and get its path
-		globalPath, err := internal.ResolveConfigPath("", "")
+		globalPath, err := config.ResolveConfigPath("", "")
 		if err != nil {
 			return err
 		}
@@ -86,7 +85,7 @@ var configInitCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to read global config: %w", err)
 		}
-		
+
 		if err := os.WriteFile(filepath.Join(localPath, "config"), configData, 0644); err != nil {
 			return err
 		}
@@ -109,7 +108,7 @@ var configListCmd = &cobra.Command{
 			}
 		}
 
-		cfg, _, err := internal.LoadConfig(configPath, ".")
+		cfg, _, err := config.LoadConfig(configPath, ".")
 		if err != nil {
 			return err
 		}
@@ -130,10 +129,17 @@ var configListCmd = &cobra.Command{
 		}
 
 		if len(cfg.Blacklist) > 0 {
-			fmt.Fprintln(w, "\nBLACKLISTED FOLDERS")
-			fmt.Fprintln(w, "-------------------")
+			fmt.Fprintln(w, "\nIGNORE PATTERNS")
+			fmt.Fprintln(w, "---------------")
 			for _, b := range cfg.Blacklist {
 				fmt.Fprintln(w, b)
+			}
+		}
+		if len(cfg.Warnings) > 0 {
+			fmt.Fprintln(w, "\nWARNINGS")
+			fmt.Fprintln(w, "--------")
+			for _, warn := range cfg.Warnings {
+				fmt.Fprintln(w, warn)
 			}
 		}
 
@@ -176,7 +182,7 @@ func manageConfig(foldername, operation string, keywords []string) error {
 		}
 	}
 
-	path, err := internal.ResolveConfigPath(configPath, ".")
+	path, err := config.ResolveConfigPath(configPath, ".")
 	if err != nil {
 		return err
 	}
@@ -244,7 +250,7 @@ var configPathCmd = &cobra.Command{
 			}
 		}
 
-		path, err := internal.ResolveConfigPath(configPath, ".")
+		path, err := config.ResolveConfigPath(configPath, ".")
 		if err != nil {
 			return err
 		}

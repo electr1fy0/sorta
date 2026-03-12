@@ -1,6 +1,6 @@
 # Sorta
 
-Sorts files in a directory based on keywords, finds duplicates, or lists largest files.
+Sorts files in a directory based on keywords, finds duplicates, renames files with AI, or lists largest files.
 
 ## Install
 
@@ -70,7 +70,7 @@ When running in a terminal, `sorta` presents an interactive list of planned oper
 - **Confirm:** Press `Enter` to proceed with the selected operations.
 - **Cancel:** Press `q` or `Esc` to abort.
 
-### Sort by keywords (default)
+### Sort by keywords
 
 ```bash
 sorta sort [directory]
@@ -98,10 +98,10 @@ AnotherFolder=another,set,of,keywords
 # Keywords can be regular expressions
 OneMoreFolder=regex(your-regular-expression)
 
-# FolderName can also be a relative folderpath.
-foo/bar/oof = rab creates a folder tree.
+# FolderName can also be a relative folder path
+foo/bar/baz = keyword  # creates a nested folder tree
 
-# Match all files
+# Match all remaining files
 Misc=*
 ```
 
@@ -115,6 +115,13 @@ Others=*
 ```
 
 Use `*` to match everything that doesn't match other rules. Specific keywords always take priority. Rules higher in the config are matched first.
+
+Ignore patterns:
+
+- Add lines prefixed with `!` in config to ignore paths/files while scanning.
+- Patterns support simple glob matching (`*.tmp`, `build`, `archive/*.zip`).
+- You can also use ignore files: `<target>/.sortaignore`, `<target>/.sorta/ignore`, and `~/.sorta/ignore`.
+- Ignore rules apply to `sort`, `rename`, `duplicates`, and `bench`.
 
 ### Smart Rename (beta)
 
@@ -132,7 +139,7 @@ You can interactively review and deselect specific renames before they are appli
 - Standardizes names like "Operating Systems Sem 5.pdf" to "OS_S5_notes.pdf"
 - Removes clutter such as copy, final, v2
 - Keeps important acronyms like DSA, TCP, OS
-- Strips off metadata
+- Strips metadata and software-generated prefixes
 - Removes redundancy and shortens verbose language
 
 Requires `GEMINI_API_KEY` environment variable set.
@@ -149,8 +156,10 @@ sorta duplicates [directory]
 sorta dd ~/Downloads
 ```
 
-Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to delete the duplicates folder.
+Uses SHA256 checksums. Moves dupes to `duplicates/` folder, keeps the first occurrence. Use `--nuke` to permanently delete the duplicates folder instead.
+Duplicate targets are deterministic and collision-safe: `<name>_<hash8>_<path6>.<ext>`.
 Includes an interactive review step to verify files before moving or deleting. If directory is omitted, it will be prompted for.
+Duplicate detection uses a bounded parallel hashing pipeline and stores a metadata hash cache in `~/.sorta/hash-cache.json` for faster repeated scans.
 
 ### List largest files
 
@@ -160,17 +169,24 @@ sorta large <directory>
 sorta top ~/Downloads
 ```
 
-Shows top 5 largest files.
+Shows the top 5 largest files in the directory.
 
-### Initialize directory
+### Microbenchmark duplicate scan
 
 ```bash
-sorta init <directory>
-# Aliases: setup, create, initialize
+sorta bench <directory>
 ```
 
-Creates a local `.sorta/` folder inside the target directory with copies of your default config and prompt. This allows per-directory configuration.
-When running `sort` in this directory, `sorta` will automatically detect and use this local configuration.
+Runs a non-destructive duplicate-scan benchmark and prints walk/plan timing, hash counts, cache hit/miss counts, and hash throughput (MiB/s).
+
+### Check ignore rules
+
+```bash
+sorta check-ignore <path>
+sorta check-ignore <directory> <path>
+```
+
+Explains whether a given path would be ignored and which rule is responsible. Useful for debugging ignore patterns.
 
 ### Manage config
 
@@ -193,9 +209,15 @@ sorta config remove <foldername>
 sorta config edit
 # Aliases: e, open
 # Opens the config file in your default editor ($EDITOR or $VISUAL)
+
+sorta config init <directory>
+# Aliases: setup, create, initialize
+# Creates a local .sorta/ folder with copies of your default config
 ```
 
 Edits `~/.sorta/config` by default. If a local config exists in the current directory, or if `--config-path` is provided, it edits that instead.
+
+`sorta config init` creates a local `.sorta/` folder inside the target directory. When running `sort` in that directory, `sorta` will automatically detect and use the local configuration instead of the global one.
 
 ### History & Undo
 
@@ -204,10 +226,30 @@ sorta history
 # Aliases: log, ls
 # View past operations
 
+sorta history --oneline
+# Compact output (id type count root)
+
 sorta undo [directory]
 # Aliases: u, revert
 # Revert the last operation in the specified directory
 ```
+
+### Web UI (Local)
+
+```bash
+sorta serve
+# Serves a local dashboard at http://127.0.0.1:8080
+```
+
+**Flags:**
+
+- `--addr` - Address to bind the web UI server (default: `127.0.0.1:8080`)
+
+**Endpoints:**
+
+- `GET /` - Lightweight dashboard
+- `GET /api/status` - Latest status and last operation summary
+- `GET /api/history` - Recent history (use `?limit=N` to specify number of entries)
 
 ### Version
 
@@ -221,28 +263,27 @@ sorta version
 ### Global
 - `--dry-run` - Preview changes and exit (skips confirmation prompt)
 - `--config-path` - Path to config file (default `~/.sorta/config`). Relative paths are resolved against the CWD; paths starting with `~` are expanded to the home directory.
-- `--recurse-level` - Level of recursion to perform in the directory (Unix only)
+- `--recurse-level` - Maximum folder depth to scan (default: unlimited)
 
 ### Command Specific
 - `--inline` (sort): Define a one-off rule, ignoring config file. Format: `"Folder=kw1,kw2"`.
-- `--nuke` (duplicates): Permanently delete duplicate files found.
+- `--nuke` (duplicates): Permanently delete duplicate files instead of moving them.
 
 ## Examples
 
-**1. One-off sorting with custom config:**
+**1. One-off sorting with a custom config:**
 
 ```bash
 sorta sort . --config-path ./my-special-config
 ```
 
-**2. Quickly organizing a cluttered Downloads folder:**
+**2. Sorting with a quick inline rule:**
 
 ```bash
-export GEMINI_API_KEY=your_key
-sorta rn ~/Uni/Semester1
+sorta sort ~/Downloads --inline "Images=jpg,png,gif"
 ```
 
-**3. Renaming messy course materials:**
+**3. Renaming messy course materials with AI:**
 
 ```bash
 export GEMINI_API_KEY=your_key
@@ -253,4 +294,17 @@ sorta rn ~/Uni/Semester1
 
 ```bash
 sorta dd ~/Photos --nuke
+```
+
+**5. Checking why a file is being ignored:**
+
+```bash
+sorta check-ignore ~/Downloads node_modules
+```
+
+**6. Viewing and undoing the last operation:**
+
+```bash
+sorta history
+sorta undo ~/Downloads
 ```

@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/core"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 
 type model struct {
 	dir      string
-	ops      []internal.FileOperation
+	ops      []core.FileOperation
 	selected map[int]bool
 	cursor   int
 	viewport viewport.Model
@@ -28,7 +28,7 @@ type model struct {
 	aborted  bool
 }
 
-func initialModel(dir string, ops []internal.FileOperation) model {
+func initialModel(dir string, ops []core.FileOperation) model {
 	selected := make(map[int]bool)
 	for i := range ops {
 		selected[i] = true
@@ -118,19 +118,19 @@ func (m *model) updateViewport() {
 
 		opType, line := "", ""
 		switch op.OpType {
-		case internal.OpMove:
+		case core.OpMove:
 			opType = "MOVE"
 			line = fmt.Sprintf("%s %s %s %s -> %s (folder)", cursor, checked, opType, srcName, filepath.Dir(relDest))
-		case internal.OpDedupe:
+		case core.OpDedupe:
 			opType = "DEDUPE"
 			line = fmt.Sprintf("%s %s %s %s -> duplicates (folder)", cursor, checked, opType, srcName)
-		case internal.OpDelete:
+		case core.OpDelete:
 			opType = "DEL"
 			line = fmt.Sprintf("%s %s %s %s", cursor, checked, opType, srcName)
-		case internal.OpRename:
+		case core.OpRename:
 			opType = "RENAME"
 			line = fmt.Sprintf("%s %s %s %s -> %s", cursor, checked, opType, srcName, filepath.Base(op.DestPath))
-		case internal.OpSkip:
+		case core.OpSkip:
 			opType = "SKIP"
 			line = fmt.Sprintf("%s %s %s %s", cursor, checked, opType, srcName)
 		}
@@ -166,7 +166,7 @@ func (m model) View() string {
 	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), help)
 }
 
-func SelectOperations(dir string, ops []internal.FileOperation) ([]internal.FileOperation, error) {
+func SelectOperations(dir string, ops []core.FileOperation) ([]core.FileOperation, error) {
 	p := tea.NewProgram(initialModel(dir, ops))
 	m, err := p.Run()
 	if err != nil {
@@ -178,7 +178,7 @@ func SelectOperations(dir string, ops []internal.FileOperation) ([]internal.File
 		return nil, fmt.Errorf("operation cancelled by user")
 	}
 
-	var selected []internal.FileOperation
+	var selected []core.FileOperation
 	for i, op := range ops {
 		if finalModel.selected[i] {
 			selected = append(selected, op)

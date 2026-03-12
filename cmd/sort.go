@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/sorter"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ var sortCmd = &cobra.Command{
 			}
 		}
 
-		configSorter, err := internal.NewConfigSorter(dir, configPath, inline)
+		configSorter, err := sorter.NewConfigSorter(dir, configPath, inline)
 		if err != nil {
 			return fmt.Errorf("error creating config sorter: %w", err)
 		}

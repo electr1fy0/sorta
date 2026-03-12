@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/rename"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ var renameCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return runSort(dir, internal.NewRenamer(), nil)
+		return runSort(dir, rename.NewRenamer(), nil)
 	},
 }
 

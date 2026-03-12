@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ var lrgCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return internal.TopLargestFiles(dir, 5)
+		return ops.TopLargestFiles(dir, 5)
 	},
 }
 

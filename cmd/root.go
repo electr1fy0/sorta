@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -29,5 +29,5 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Do a dry run without making changes")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config-path", "", "Path to config file (default: ~/.sorta/config)")
-	rootCmd.PersistentFlags().IntVar(&internal.RecurseLevel, "recurse-level", 1<<10, "Level of recursion to perform in the directory")
+	rootCmd.PersistentFlags().IntVar(&ops.RecurseLevel, "recurse-level", 1<<10, "Level of recursion to perform in the directory")
 }

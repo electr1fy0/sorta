@@ -106,8 +106,9 @@ var DefaultConfig = `// Config file for 'sorta'
 // - key1, key2, key3, etc are keywords to match in file names.
 // - You can list one or many keywords after the '='.
 // - Lines starting with '//' are comments and ignored.
-// - Add a ! followed by a foldername to blacklist the folder from being touched by the sort command.
-// - rename and duplicate commands do not look at the config as of sorta v0.6.X.
+// - Add a ! followed by an ignore pattern to skip paths/files while scanning.
+//   Examples: !node_modules, !*.tmp, !archive/*.zip
+// - Ignore rules are also loaded from .sortaignore, .sorta/ignore, and ~/.sorta/ignore.
 // - * as a keyword matches all filenames which don't contain the other keywords
 // - . as a foldernames means the root folder that you passed to sorta.
 // - To flatten the subfolder tree, use . = *
@@ -122,5 +123,5 @@ var DefaultConfig = `// Config file for 'sorta'
 // 2024-Papers=regex(^PAP.*2024$)
 // others=*
 //
-// Important folder that sorta won't move from:
+// Important folder that sorta won't scan:
 // !my-secret-folder`

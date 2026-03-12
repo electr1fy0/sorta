@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -29,9 +29,13 @@ var undoCmd = &cobra.Command{
 			return nil
 		}
 
-		if err := internal.Undo(dir); err != nil {
-			if errors.Is(err, internal.ErrAlreadyUndone) {
+		if err := ops.Undo(dir); err != nil {
+			if errors.Is(err, ops.ErrAlreadyUndone) {
 				fmt.Printf("Last operation in %s already undone\n", dir)
+				return nil
+			}
+			if errors.Is(err, ops.ErrNoHistory) {
+				fmt.Printf("No recorded operations found for %s\n", dir)
 				return nil
 			}
 			return err

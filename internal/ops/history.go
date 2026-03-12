@@ -1,4 +1,4 @@
-package internal
+package ops
 
 import (
 	"encoding/json"
@@ -7,24 +7,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/electr1fy0/sorta/internal/core"
 )
 
-var ErrAlreadyUndone = errors.New("last operation already undone")
+var (
+	ErrAlreadyUndone = errors.New("last operation already undone")
+	ErrNoHistory     = errors.New("no recorded operation found for this directory")
+)
 
-func LogToHistory(transaction Transaction) error {
-	sortaDir, err := GetSortaDir()
+func LogToHistory(transaction core.Transaction) error {
+	sortaDir, err := core.GetSortaDir()
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(sortaDir, 0755); err != nil {
 		return err
 	}
 	historyPath := filepath.Join(sortaDir, "history")
-	f, err := os.OpenFile(historyPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	data, err := json.Marshal(transaction)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(transaction)
-
-	_, err = f.Write([]byte(string(data) + "\n"))
-	return err
+	return core.AppendLineAtomic(historyPath, string(data), 0644)
 }
 
 func Undo(path string) error {
@@ -45,8 +50,11 @@ func Undo(path string) error {
 		return fmt.Errorf("cannot undo irreversible operation (e.g. used --nuke)")
 	}
 
-	t.TType = TUndo
-	LogToHistory(t)
+	t.TType = core.TUndo
+	if err := LogToHistory(t); err != nil {
+		return err
+	}
+
 	var executor Executor
 	for _, op := range t.Operations {
 		op.File.SourcePath, op.DestPath = op.DestPath, op.File.SourcePath
@@ -55,44 +63,45 @@ func Undo(path string) error {
 	return nil
 }
 
-func readLastTransaction(root string) (Transaction, error) {
-	sortaDir, err := GetSortaDir()
+func readLastTransaction(root string) (core.Transaction, error) {
+	sortaDir, err := core.GetSortaDir()
 	if err != nil {
-		return Transaction{}, err
+		return core.Transaction{}, err
 	}
 	historyPath := filepath.Join(sortaDir, "history")
-	var transaction Transaction
 
 	data, err := os.ReadFile(historyPath)
 	if err != nil {
-		return transaction, err
+		if os.IsNotExist(err) {
+			return core.Transaction{}, fmt.Errorf("%w: %s", ErrNoHistory, root)
+		}
+		return core.Transaction{}, err
 	}
 	lines := strings.Split(string(data), "\n")
 
+	var transaction core.Transaction
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := lines[i]
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		err = json.Unmarshal([]byte(line), &transaction)
-		if err != nil {
-			return transaction, err
+		if err := json.Unmarshal([]byte(line), &transaction); err != nil {
+			return core.Transaction{}, err
 		}
 
-		if len(transaction.Operations) > 0 && transaction.Operations[0].File.RootDir == root {
-			if transaction.TType == TUndo {
-
-				return Transaction{}, fmt.Errorf("last operation in %s was already undone:%w", root, ErrAlreadyUndone)
-			}
-
-			return transaction, err
+		if len(transaction.Operations) == 0 || transaction.Operations[0].File.RootDir != root {
+			continue
 		}
+		if transaction.TType == core.TUndo {
+			return core.Transaction{}, fmt.Errorf("last operation in %s was already undone: %w", root, ErrAlreadyUndone)
+		}
+		return transaction, nil
 	}
-	return transaction, err
+	return core.Transaction{}, fmt.Errorf("%w: %s", ErrNoHistory, root)
 }
 
-func GetHistory() ([]Transaction, error) {
-	sortaDir, err := GetSortaDir()
+func GetHistory() ([]core.Transaction, error) {
+	sortaDir, err := core.GetSortaDir()
 	if err != nil {
 		return nil, err
 	}
@@ -106,13 +115,13 @@ func GetHistory() ([]Transaction, error) {
 		return nil, err
 	}
 
-	var transactions []Transaction
+	var transactions []core.Transaction
 
 	for line := range strings.Lines(string(data)) {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		var t Transaction
+		var t core.Transaction
 		if err := json.Unmarshal([]byte(line), &t); err != nil {
 			return nil, err
 		}

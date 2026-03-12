@@ -1,4 +1,4 @@
-package internal
+package rename
 
 import (
 	"context"
@@ -9,17 +9,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/electr1fy0/sorta/internal/core"
 	"github.com/electr1fy0/sorta/templates"
 	"google.golang.org/genai"
 )
 
 var defaultPrompt = templates.DefaultPrompt
 
+type Renamer struct{}
+
 func NewRenamer() *Renamer {
 	return &Renamer{}
 }
 
-func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
+func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.FileOperation, error) {
 	if os.Getenv("GEMINI_API_KEY") == "" {
 		return nil, fmt.Errorf("Missing GEMINI_API_KEY environment variable")
 	}
@@ -40,7 +43,6 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 
 	prompt := defaultPrompt
 
-	ctx := context.Background()
 	client, err := genai.NewClient(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create genai client: %w", err)
@@ -83,7 +85,7 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 		return nil, fmt.Errorf("integrity error: sent %d files, received %d names", len(files), len(newnames))
 	}
 
-	ops := make([]FileOperation, 0, len(files))
+	ops := make([]core.FileOperation, 0, len(files))
 	seen := make(map[string]bool)
 
 	for i, newName := range newnames {
@@ -103,8 +105,8 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 		seen[newName] = true
 		destPath := filepath.Join(filepath.Dir(files[i].SourcePath), newName)
 
-		op := FileOperation{
-			OpType:   OpRename,
+		op := core.FileOperation{
+			OpType:   core.OpRename,
 			File:     files[i],
 			DestPath: destPath,
 			Size:     files[i].Size,
@@ -114,5 +116,3 @@ func (r *Renamer) Decide(files []FileEntry) ([]FileOperation, error) {
 
 	return ops, nil
 }
-
-

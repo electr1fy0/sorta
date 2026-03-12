@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"github.com/electr1fy0/sorta/internal"
+	"github.com/electr1fy0/sorta/internal/dupl"
+	"github.com/electr1fy0/sorta/internal/ops"
 	"github.com/spf13/cobra"
 )
 
@@ -17,11 +18,11 @@ var duplCmd = &cobra.Command{
 			return err
 		}
 
-		return runSort(dir, internal.NewDuplicateFinder(), nil)
+		return runSort(dir, dupl.NewDuplicateFinder(), nil)
 	},
 }
 
 func init() {
-	duplCmd.PersistentFlags().BoolVar(&internal.DuplNuke, "nuke", false, "Delete duplicates permanently")
+	duplCmd.PersistentFlags().BoolVar(&ops.DuplNuke, "nuke", false, "Delete duplicates permanently")
 	rootCmd.AddCommand(duplCmd)
 }
