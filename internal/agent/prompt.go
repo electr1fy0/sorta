@@ -29,7 +29,7 @@ The JSON object must have this shape:
   "actions": [
     {"kind": "dedupe"},
     {"kind": "sort_rule", "sort_rule": {"folder": "OS", "keywords": ["os", "operating systems"]}},
-    {"kind": "rename", "rename": {"files": []}}
+    {"kind": "rename", "rename": {"files": [], "hints": ["all caps"]}}
   ]
 }
 
@@ -39,6 +39,7 @@ Rules:
 - Use "sort_rule" for grouping behavior.
 - For renaming the whole directory, set "rename.files" to an empty array.
 - For renaming a subset, "rename.files" must be relative file paths.
+- For the "rename" action, use the "hints" field (string array) to pass specific renaming instructions from the goal (e.g., "uppercase", "remove dates", "add prefix X").
 - Do not include any extra top-level keys.
 - Do not edit or mention persistent config files.
 - Keep plans minimal and directly executable.

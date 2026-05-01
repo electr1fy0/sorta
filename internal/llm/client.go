@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-const DefaultModel = "groq/compound-mini"
+const DefaultModel = "openai/gpt-oss-20b"
 
 type Request struct {
 	Model        string

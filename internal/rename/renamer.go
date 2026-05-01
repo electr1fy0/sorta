@@ -51,7 +51,7 @@ func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.Fi
 			return nil, fmt.Errorf("failed to marshal filenames: %w", err)
 		}
 
-		userPrompt := defaultPrompt + "\n"
+		userPrompt := ""
 		if len(r.hints) > 0 {
 			hintsJSON, err := json.Marshal(r.hints)
 			if err != nil {
@@ -59,11 +59,11 @@ func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.Fi
 			}
 			userPrompt += "USER_HINTS: " + string(hintsJSON) + "\n"
 		}
-		userPrompt += string(marshalledPayload)
+		userPrompt += string(marshalledPayload) + "\nOutput the results as a JSON object."
 
 		raw, err := r.client.Run(ctx, llm.Request{
 			Model:        r.model,
-			SystemPrompt: "Return exactly one JSON object with a 'filenames' key containing the renamed strings and nothing else.",
+			SystemPrompt: defaultPrompt + "\n\nCRITICAL: Return exactly one JSON object with a 'filenames' key containing the renamed strings and nothing else.",
 			UserPrompt:   userPrompt,
 		})
 		if err != nil {

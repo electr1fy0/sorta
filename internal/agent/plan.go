@@ -22,6 +22,7 @@ type SortRuleAction struct {
 
 type RenameAction struct {
 	Files []string `json:"files,omitempty"`
+	Hints []string `json:"hints,omitempty"`
 }
 
 type PlannedAction struct {

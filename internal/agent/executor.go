@@ -24,7 +24,7 @@ func ExecutePlan(ctx context.Context, dir string, plan ExecutionPlan) error {
 				return err
 			}
 		case ActionRename:
-			sorter, err := newRenameSelectionSorter(action.Rename.Files)
+			sorter, err := newRenameSelectionSorter(action.Rename.Files, action.Rename.Hints)
 			if err != nil {
 				return err
 			}
@@ -62,7 +62,7 @@ type renameSelectionSorter struct {
 	allowed map[string]struct{}
 }
 
-func newRenameSelectionSorter(files []string) (*renameSelectionSorter, error) {
+func newRenameSelectionSorter(files []string, hints []string) (*renameSelectionSorter, error) {
 	client, err := llm.NewClient(llm.DefaultModel)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func newRenameSelectionSorter(files []string) (*renameSelectionSorter, error) {
 		allowed[filepath.Clean(file)] = struct{}{}
 	}
 	return &renameSelectionSorter{
-		renamer: rename.NewRenamer(client, llm.DefaultModel, nil),
+		renamer: rename.NewRenamer(client, llm.DefaultModel, hints),
 		allowed: allowed,
 	}, nil
 }
