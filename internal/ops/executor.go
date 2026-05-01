@@ -13,9 +13,13 @@ type Executor struct {
 }
 
 func (e *Executor) Execute(op core.FileOperation) (bool, error) {
+	return e.ExecuteWithSrc(op, op.File.SourcePath)
+}
+
+func (e *Executor) ExecuteWithSrc(op core.FileOperation, src string) (bool, error) {
 	switch op.OpType {
 	case core.OpMove, core.OpDedupe, core.OpRename:
-		if op.DestPath == op.File.SourcePath {
+		if op.DestPath == src {
 			return false, nil
 		}
 		destDir := filepath.Dir(op.DestPath)
@@ -23,7 +27,7 @@ func (e *Executor) Execute(op core.FileOperation) (bool, error) {
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			return false, fmt.Errorf("failed to create directory: %w", err)
 		}
-		if err := os.Rename(op.File.SourcePath, op.DestPath); err != nil {
+		if err := os.Rename(src, op.DestPath); err != nil {
 			return false, fmt.Errorf("failed to move file: %w", err)
 		}
 
@@ -31,7 +35,7 @@ func (e *Executor) Execute(op core.FileOperation) (bool, error) {
 		return true, nil
 
 	case core.OpDelete:
-		if err := os.Remove(op.File.SourcePath); err != nil {
+		if err := os.Remove(src); err != nil {
 			return false, fmt.Errorf("failed to delete file: %w", err)
 		}
 		return true, nil

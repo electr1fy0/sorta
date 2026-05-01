@@ -213,6 +213,7 @@ func parseConfigFromReader(r io.Reader) (*ConfigData, error) {
 
 func Categorize(configData ConfigData, filename string) string {
 	fallback := ""
+	lowerFilename := strings.ToLower(filename)
 	for i, foldername := range configData.Foldernames {
 		for _, matcher := range configData.Matchers[i] {
 			if matcher.Regex != nil {
@@ -225,7 +226,7 @@ func Categorize(configData ConfigData, filename string) string {
 			if matcher.Raw == "*" {
 				fallback = foldername
 			}
-			if strings.Contains(filename, matcher.Raw) {
+			if strings.Contains(lowerFilename, strings.ToLower(matcher.Raw)) {
 				return foldername
 			}
 		}

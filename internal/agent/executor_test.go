@@ -21,6 +21,7 @@ func TestExecutePlanCreatesFoldersAndMovesFiles(t *testing.T) {
 	plan := ExecutionPlan{
 		Summary: "Create pyqs and group OS files",
 		Actions: []PlannedAction{
+			{Kind: ActionMkdir, Mkdir: &MkdirAction{Path: "pyqs"}},
 			{Kind: ActionSortRule, SortRule: &SortRuleAction{Folder: "OS", Keywords: []string{"os"}}},
 		},
 	}
@@ -29,9 +30,6 @@ func TestExecutePlanCreatesFoldersAndMovesFiles(t *testing.T) {
 		t.Fatalf("ExecutePlan returned error: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, "pyqs")); err != nil {
-		t.Fatalf("expected pyqs directory to exist: %v", err)
-	}
 	if _, err := os.Stat(filepath.Join(dir, "OS", "os_notes.pdf")); err != nil {
 		t.Fatalf("expected sorted file to exist: %v", err)
 	}

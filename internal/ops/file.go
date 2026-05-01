@@ -80,14 +80,15 @@ func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.F
 		return baseErr
 	}
 
-	for _, op := range operations {
+	for i := range operations {
+		op := &operations[i]
 		if err := ctx.Err(); err != nil {
 			return result, failWithRollback(fmt.Errorf("operation cancelled: %w", err), rollback)
 		}
 
-		moved, rb, err := applyAtomicOperation(op, executor, txnDir, len(rollback))
+		moved, rb, err := applyAtomicOperation(op, executor, txnDir, i)
 		if moved || err != nil {
-			reporter.Report(op, err)
+			reporter.Report(*op, err)
 		}
 
 		if err != nil {
@@ -110,6 +111,17 @@ func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.F
 		}
 		if op.OpType == core.OpSkip {
 			result.Skipped++
+		}
+	}
+
+	for i := range operations {
+		op := &operations[i]
+		if op.StagedPath != "" && op.OpType != core.OpDelete {
+			_, err := executor.ExecuteWithSrc(*op, op.StagedPath)
+			if err != nil {
+				return result, failWithRollback(fmt.Errorf("failed to move staged file to final destination %s: %w", op.DestPath, err), rollback)
+			}
+			rollback = append(rollback, rollbackAction{From: op.DestPath, To: op.StagedPath})
 		}
 	}
 
@@ -311,14 +323,21 @@ func stageDuplicateNuke(rootDir, txnDir string) (int, []rollbackAction, error) {
 	return nukedCount, rollback, nil
 }
 
-func applyAtomicOperation(op core.FileOperation, executor *Executor, txnDir string, idx int) (bool, []rollbackAction, error) {
+func applyAtomicOperation(op *core.FileOperation, executor *Executor, txnDir string, idx int) (bool, []rollbackAction, error) {
 	switch op.OpType {
 	case core.OpMove, core.OpDedupe, core.OpRename:
-		moved, err := executor.Execute(op)
-		if err != nil || !moved {
-			return moved, nil, err
+		if op.DestPath == op.File.SourcePath {
+			return false, nil, nil
 		}
-		return true, []rollbackAction{{From: op.DestPath, To: op.File.SourcePath}}, nil
+		staged := filepath.Join(txnDir, "staged", fmt.Sprintf("%06d_%s", idx, filepath.Base(op.File.SourcePath)))
+		if err := os.MkdirAll(filepath.Dir(staged), 0755); err != nil {
+			return false, nil, err
+		}
+		if err := os.Rename(op.File.SourcePath, staged); err != nil {
+			return false, nil, err
+		}
+		op.StagedPath = staged
+		return true, []rollbackAction{{From: staged, To: op.File.SourcePath}}, nil
 	case core.OpDelete:
 		src := op.File.SourcePath
 		if src == "" {
@@ -337,6 +356,7 @@ func applyAtomicOperation(op core.FileOperation, executor *Executor, txnDir stri
 		if err := os.Rename(src, staged); err != nil {
 			return false, nil, err
 		}
+		executor.Operations = append(executor.Operations, *op)
 		return true, []rollbackAction{{From: staged, To: src}}, nil
 	case core.OpSkip:
 		return false, nil, nil

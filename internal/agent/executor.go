@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/electr1fy0/sorta/internal/config"
@@ -30,6 +31,10 @@ func ExecutePlan(ctx context.Context, dir string, plan ExecutionPlan) error {
 			}
 			if err := runSorter(ctx, dir, sorter, nil); err != nil {
 				return err
+			}
+		case ActionMkdir:
+			if err := os.MkdirAll(filepath.Join(dir, action.Mkdir.Path), 0755); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
 			}
 		case ActionSortRule:
 			rules := make([]config.RuleSpec, 0, 4)

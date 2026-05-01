@@ -13,6 +13,7 @@ const (
 	ActionSortRule ActionKind = "sort_rule"
 	ActionDedupe   ActionKind = "dedupe"
 	ActionRename   ActionKind = "rename"
+	ActionMkdir    ActionKind = "mkdir"
 )
 
 type SortRuleAction struct {
@@ -25,10 +26,15 @@ type RenameAction struct {
 	Hints []string `json:"hints,omitempty"`
 }
 
+type MkdirAction struct {
+	Path string `json:"path"`
+}
+
 type PlannedAction struct {
 	Kind     ActionKind      `json:"kind"`
 	SortRule *SortRuleAction `json:"sort_rule,omitempty"`
 	Rename   *RenameAction   `json:"rename,omitempty"`
+	Mkdir    *MkdirAction    `json:"mkdir,omitempty"`
 }
 
 type ExecutionPlan struct {
@@ -110,6 +116,16 @@ func (a *PlannedAction) normalize() error {
 		}
 		a.Rename.Files = files
 		return nil
+	case ActionMkdir:
+		if a.Mkdir == nil {
+			return fmt.Errorf("mkdir payload is required")
+		}
+		cleaned, err := normalizeRelativePath(a.Mkdir.Path)
+		if err != nil {
+			return fmt.Errorf("invalid mkdir path %q: %w", a.Mkdir.Path, err)
+		}
+		a.Mkdir.Path = cleaned
+		return nil
 	default:
 		return fmt.Errorf("unsupported action kind %q", a.Kind)
 	}
@@ -138,6 +154,8 @@ func (p ExecutionPlan) String() string {
 			} else {
 				fmt.Fprintf(&b, "%d. rename selected files: %s\n", i+1, strings.Join(action.Rename.Files, ", "))
 			}
+		case ActionMkdir:
+			fmt.Fprintf(&b, "%d. create directory %q\n", i+1, action.Mkdir.Path)
 		default:
 			fmt.Fprintf(&b, "%d. %s\n", i+1, action.Kind)
 		}

@@ -34,7 +34,7 @@ func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.Fi
 	}
 
 	allNewNames := make([]string, 0, len(files))
-	batchSize := 20
+	batchSize := 10
 
 	for i := 0; i < len(files); i += batchSize {
 		end := i + batchSize

@@ -49,10 +49,11 @@ type FileEntry struct {
 }
 
 type FileOperation struct {
-	OpType   OperationType
-	File     FileEntry
-	DestPath string
-	Size     int64
+	OpType     OperationType
+	File       FileEntry
+	DestPath   string
+	Size       int64
+	StagedPath string
 }
 
 type Sorter interface {
