@@ -4,93 +4,94 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/electr1fy0/sorta/internal/core"
+	"github.com/electr1fy0/sorta/internal/llm"
 	"github.com/electr1fy0/sorta/templates"
-	"google.golang.org/genai"
 )
 
 var defaultPrompt = templates.DefaultPrompt
 
-type Renamer struct{}
+type Renamer struct {
+	client llm.Client
+	model  string
+	hints  []string
+}
 
-func NewRenamer() *Renamer {
-	return &Renamer{}
+func NewRenamer(client llm.Client, model string, hints []string) *Renamer {
+	return &Renamer{
+		client: client,
+		model:  model,
+		hints:  append([]string(nil), hints...),
+	}
 }
 
 func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.FileOperation, error) {
-	if os.Getenv("GEMINI_API_KEY") == "" {
-		return nil, fmt.Errorf("Missing GEMINI_API_KEY environment variable")
-	}
 	if len(files) == 0 {
 		return nil, nil
 	}
 
-	filenames := make([]string, len(files))
+	allNewNames := make([]string, 0, len(files))
+	batchSize := 20
 
-	for i, f := range files {
-		filenames[i] = filepath.Base(f.SourcePath)
-	}
+	for i := 0; i < len(files); i += batchSize {
+		end := i + batchSize
+		end = min(len(files), end)
 
-	marshalledPayload, err := json.Marshal(filenames)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal filenames: %w", err)
-	}
-
-	prompt := defaultPrompt
-
-	client, err := genai.NewClient(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create genai client: %w", err)
-	}
-	status := make(chan struct{})
-	go func() {
-		dots := []string{"", ".", "..", "..."}
-		i := 0
-
-		for {
-			select {
-			case <-status:
-				return
-
-			default:
-				fmt.Printf("\rConversing with Gemini%s     ", dots[i])
-				i = (i + 1) % len(dots)
-				time.Sleep(200 * time.Millisecond)
-			}
+		batch := files[i:end]
+		batchFilenames := make([]string, len(batch))
+		for j, f := range batch {
+			batchFilenames[j] = filepath.Base(f.SourcePath)
 		}
-	}()
 
-	resp, err := client.Models.GenerateContent(ctx, "gemini-2.5-flash-lite", genai.Text(prompt+"\n"+string(marshalledPayload)), nil)
-	close(status)
-	fmt.Print("\r                             \n")
+		marshalledPayload, err := json.Marshal(batchFilenames)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal filenames: %w", err)
+		}
 
-	if err != nil {
-		return nil, fmt.Errorf("gemini request failed: %w", err)
-	}
+		userPrompt := defaultPrompt + "\n"
+		if len(r.hints) > 0 {
+			hintsJSON, err := json.Marshal(r.hints)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal rename hints: %w", err)
+			}
+			userPrompt += "USER_HINTS: " + string(hintsJSON) + "\n"
+		}
+		userPrompt += string(marshalledPayload)
 
-	raw := resp.Text()
-	raw = strings.TrimSpace(raw)
+		raw, err := r.client.Run(ctx, llm.Request{
+			Model:        r.model,
+			SystemPrompt: "Return exactly one JSON object with a 'filenames' key containing the renamed strings and nothing else.",
+			UserPrompt:   userPrompt,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("rename request failed for batch starting at %d: %w", i, err)
+		}
+		raw = strings.TrimSpace(raw)
 
-	var newnames []string
-	if err := json.Unmarshal([]byte(raw), &newnames); err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w. Raw output: %s", err, raw)
-	}
+		var response struct {
+			Filenames []string `json:"filenames"`
+		}
+		if err := json.Unmarshal([]byte(raw), &response); err != nil {
+			return nil, fmt.Errorf("failed to parse AI response for batch starting at %d: %w. Raw output: %s", i, err, raw)
+		}
 
-	if len(newnames) != len(files) {
-		return nil, fmt.Errorf("integrity error: sent %d files, received %d names", len(files), len(newnames))
+		if len(response.Filenames) != len(batch) {
+			return nil, fmt.Errorf("integrity error in batch starting at %d: sent %d files, received %d names. Raw output: %s", i, len(batch), len(response.Filenames), raw)
+		}
+
+		allNewNames = append(allNewNames, response.Filenames...)
 	}
 
 	ops := make([]core.FileOperation, 0, len(files))
 	seen := make(map[string]bool)
 
-	for i, newName := range newnames {
+	for i, newName := range allNewNames {
+		originalName := filepath.Base(files[i].SourcePath)
 		if strings.TrimSpace(newName) == "" {
-			newName = filenames[i]
+			newName = originalName
 		}
 
 		base := newName

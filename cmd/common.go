@@ -18,23 +18,22 @@ import (
 )
 
 const (
-	ansiReset = "[0m"
-	ansiCyan  = "[36m"
+	ansiReset = "\x1b[0m"
+	ansiCyan  = "\x1b[36m"
 )
 
 func resolvePath(path string) (string, error) {
 	var err error
-	path, err = core.ExpandPath(path)
+	path, err = core.ExpandTildePath(path)
 	if err != nil {
 		return "", err
 	}
-	if !filepath.IsAbs(path) {
-		path, err = filepath.Abs(path)
-		if err != nil {
-			return "", fmt.Errorf("cannot determine absolute path: %w", err)
-		}
+
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("cannot determine absolute path: %w", err)
 	}
-	return filepath.Clean(path), nil
+	return path, nil
 }
 
 func validateDir(path string) (string, error) {

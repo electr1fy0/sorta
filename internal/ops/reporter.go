@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	ansiReset = "[0m"
-	ansiRed   = "[31m"
-	ansiGreen = "[32m"
+	ansiReset = "\x1b[0m"
+	ansiRed   = "\x1b[31m"
+	ansiGreen = "\x1b[32m"
 )
 
 type Reporter struct{}

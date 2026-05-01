@@ -12,6 +12,10 @@ type ConfigSorter struct {
 	configData *config.ConfigData
 }
 
+type RuleSorter struct {
+	configData *config.ConfigData
+}
+
 func NewConfigSorter(folderPath, configPath, inline string) (*ConfigSorter, error) {
 	if inline != "" {
 		confData, err := config.ParseInline(inline)
@@ -28,7 +32,23 @@ func NewConfigSorter(folderPath, configPath, inline string) (*ConfigSorter, erro
 	return &ConfigSorter{configData: confData}, nil
 }
 
+func NewRuleSorter(rules []config.RuleSpec) (*RuleSorter, error) {
+	confData, err := config.BuildConfigData(rules)
+	if err != nil {
+		return nil, err
+	}
+	return &RuleSorter{configData: confData}, nil
+}
+
 func (s *ConfigSorter) Decide(ctx context.Context, files []core.FileEntry) ([]core.FileOperation, error) {
+	return decide(ctx, s.configData, files)
+}
+
+func (s *RuleSorter) Decide(ctx context.Context, files []core.FileEntry) ([]core.FileOperation, error) {
+	return decide(ctx, s.configData, files)
+}
+
+func decide(ctx context.Context, configData *config.ConfigData, files []core.FileEntry) ([]core.FileOperation, error) {
 	ops := make([]core.FileOperation, 0, 10)
 
 	for _, file := range files {
@@ -36,10 +56,10 @@ func (s *ConfigSorter) Decide(ctx context.Context, files []core.FileEntry) ([]co
 			return nil, err
 		}
 		filename := filepath.Base(file.SourcePath)
-		destFolder := config.Categorize(*s.configData, filename)
+		destFolder := config.Categorize(*configData, filename)
 
 		if destFolder == "" {
-			ops = append(ops, core.FileOperation{OpType: core.OpSkip})
+			ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: file})
 		} else {
 			ops = append(ops, core.FileOperation{
 				OpType:   core.OpMove,
@@ -54,5 +74,9 @@ func (s *ConfigSorter) Decide(ctx context.Context, files []core.FileEntry) ([]co
 }
 
 func (s *ConfigSorter) GetBlacklist() []string {
+	return s.configData.Blacklist
+}
+
+func (s *RuleSorter) GetBlacklist() []string {
 	return s.configData.Blacklist
 }

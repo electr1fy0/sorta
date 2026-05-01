@@ -3,6 +3,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,11 @@ type ConfigData struct {
 	Matchers    [][]Matcher
 	Blacklist   []string
 	Warnings    []string
+}
+
+type RuleSpec struct {
+	Folder   string
+	Keywords []string
 }
 
 type Matcher struct {
@@ -89,29 +95,47 @@ func parseMatcher(k string) (Matcher, error) {
 }
 
 func ParseInline(s string) (*ConfigData, error) {
-	parts := strings.SplitN(strings.TrimSpace(s), "=", 2)
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
-		return nil, fmt.Errorf("invalid inline syntax %q: expected \"Folder=kw1,kw2\"", s)
-	}
-	foldername := strings.TrimSpace(parts[0])
+	normalized := strings.ReplaceAll(s, `\n`, "\n")
+	return parseConfigFromReader(strings.NewReader(normalized))
+}
 
-	var matchers []Matcher
-	for _, k := range strings.Split(parts[1], ",") {
-		k = strings.TrimSpace(k)
-		if k == "" {
-			continue
-		}
-		m, err := parseMatcher(k)
-		if err != nil {
-			return nil, err
-		}
-		matchers = append(matchers, m)
+func BuildConfigData(rules []RuleSpec) (*ConfigData, error) {
+	configData := &ConfigData{
+		Foldernames: make([]string, 0, len(rules)),
+		Matchers:    make([][]Matcher, 0, len(rules)),
+		Blacklist:   make([]string, 0),
+		Warnings:    make([]string, 0),
 	}
 
-	return &ConfigData{
-		Foldernames: []string{foldername},
-		Matchers:    [][]Matcher{matchers},
-	}, nil
+	for _, rule := range rules {
+		folder := strings.TrimSpace(rule.Folder)
+		if folder == "" {
+			return nil, fmt.Errorf("rule folder cannot be empty")
+		}
+		matchers := make([]Matcher, 0, len(rule.Keywords))
+		for _, keyword := range rule.Keywords {
+			keyword = strings.TrimSpace(keyword)
+			if keyword == "" {
+				continue
+			}
+			matcher, err := parseMatcher(keyword)
+			if err != nil {
+				return nil, err
+			}
+			matchers = append(matchers, matcher)
+		}
+		if len(matchers) == 0 {
+			return nil, fmt.Errorf("rule %q must include at least one keyword", folder)
+		}
+		configData.Foldernames = append(configData.Foldernames, folder)
+		configData.Matchers = append(configData.Matchers, matchers)
+	}
+
+	if len(configData.Foldernames) == 0 {
+		return nil, fmt.Errorf("at least one rule is required")
+	}
+
+	return configData, nil
 }
 
 func ParseConfig(configPath string) (*ConfigData, error) {
@@ -123,13 +147,17 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
 	defer file.Close()
+	return parseConfigFromReader(file)
+}
+
+func parseConfigFromReader(r io.Reader) (*ConfigData, error) {
 	var configData ConfigData
 	configData.Foldernames = make([]string, 0, 50)
 	configData.Matchers = make([][]Matcher, 0, 50)
 	configData.Blacklist = make([]string, 0, 10)
 	configData.Warnings = make([]string, 0, 8)
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	lineNo := 0
 	for scanner.Scan() {
 		lineNo++
@@ -173,11 +201,11 @@ func ParseConfig(configPath string) (*ConfigData, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
 	if len(configData.Foldernames) == 0 {
-		return nil, fmt.Errorf("config file is empty. Add keywords to .sorta-config in home directory")
+		return nil, fmt.Errorf("config is empty. Add keywords to .sorta-config in home directory")
 	}
 
 	return &configData, nil

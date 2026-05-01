@@ -89,6 +89,7 @@ func (d *DuplicateFinder) Decide(ctx context.Context, files []core.FileEntry) ([
 				OpType:   core.OpDedupe,
 				File:     f,
 				DestPath: dedupeDestPath(f, contentHash),
+				Size:     f.Size,
 			})
 		}
 	}

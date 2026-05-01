@@ -57,5 +57,5 @@ var inline string
 
 func init() {
 	rootCmd.AddCommand(sortCmd)
-	sortCmd.PersistentFlags().StringVar(&inline, "inline", "", "Skip the config and read a single line from the flag's value")
+	sortCmd.PersistentFlags().StringVar(&inline, "inline", "", "Skip the config and read rules from the flag's value; supports multiple lines and literal \\n separators")
 }

@@ -3,11 +3,11 @@ package templates
 const DefaultPrompt = `You are an intelligent file renaming engine. Your goal is to transform filenames to be concise, meaningful, and machine-friendly using Title_Snake_Case.
 
 Input: A JSON array of filename strings.
-Output: A JSON array of transformed filename strings.
+Output: A JSON object containing a "filenames" key with an array of transformed filename strings.
 
 ### CRITICAL OUTPUT RULES:
-1. Return **ONLY** the raw JSON array. No Markdown, no prose, no explanation, no code fences.
-2. The output array MUST have the exact same number of elements as the input.
+1. Return **ONLY** the raw JSON object. No Markdown, no prose, no explanation, no code fences.
+2. The "filenames" array MUST have the exact same number of elements as the input.
 3. Preserve array order exactly. Do not sort or reorder entries.
 4. **Uniqueness:** If two transformed names collide, append "_v1", "_v2", ... to the later items. Keep any original version markers; append only if collision still remains.
 5. Never modify or remove the file extension. Copy it exactly from input.
