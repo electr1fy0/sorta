@@ -20,8 +20,11 @@ var (
 )
 
 var goalCmd = &cobra.Command{
-	Use:   "goal <directory> <instruction>",
+	Use:   "agent <directory> <instruction>",
 	Short: "Plan and execute a natural language file-organization goal",
+	Aliases: []string{
+		"goal",
+	},
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := validateDir(args[0])
@@ -41,19 +44,14 @@ var goalCmd = &cobra.Command{
 
 		session := agent.NewSession(client, agent.SessionOptions{MaxSteps: goalMaxSteps})
 		for range goalMaxSteps {
-			result, err := session.Plan(context.Background(), agent.PlanInput{
-				Dir:         dir,
-				Instruction: args[1],
-				Model:       goalModel,
-				Names:       agent.NamesInput{Hints: names},
-			})
+			plan, err := session.Plan(context.Background(), dir, args[1], goalModel, names)
 			if err != nil {
 				return err
 			}
 
-			if len(result.RequestFilenames) > 0 {
-				fmt.Println(strings.TrimSpace(result.Plan.Summary))
-				extraNames, err := collectAgentNames(result.RequestFilenames)
+			if len(plan.RequestFilenames) > 0 {
+				fmt.Println(strings.TrimSpace(plan.Summary))
+				extraNames, err := collectAgentNames(plan.RequestFilenames)
 				if err != nil {
 					return err
 				}
@@ -61,7 +59,7 @@ var goalCmd = &cobra.Command{
 				continue
 			}
 
-			fmt.Println(result.Plan.String())
+			fmt.Println(plan.String())
 			if dryRun {
 				fmt.Println("Dry run complete. No changes made.")
 				return nil
@@ -76,7 +74,7 @@ var goalCmd = &cobra.Command{
 				return nil
 			}
 
-			return agent.ExecutePlan(context.Background(), dir, result.Plan)
+			return agent.ExecutePlan(context.Background(), dir, plan)
 		}
 
 		return fmt.Errorf("planner hit max clarification rounds (%d)", goalMaxSteps)

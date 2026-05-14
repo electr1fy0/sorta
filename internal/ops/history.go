@@ -33,6 +33,10 @@ func LogToHistory(transaction core.Transaction) error {
 }
 
 func Undo(path string) error {
+	return undoWithFS(path, core.OSFileSystem{})
+}
+
+func undoWithFS(path string, fs core.FileSystem) error {
 	if !filepath.IsAbs(path) {
 		var err error
 		path, err = filepath.Abs(path)
@@ -47,19 +51,25 @@ func Undo(path string) error {
 	}
 
 	if t.Irreversible {
-		return fmt.Errorf("cannot undo irreversible operation (e.g. used --nuke)")
+		return fmt.Errorf("cannot undo irreversible operation (e.g. contains deletes or used --nuke)")
+	}
+
+	undoOps := make([]core.FileOperation, 0, len(t.Operations))
+	for _, op := range t.Operations {
+		undoOp := op
+		undoOp.File.SourcePath, undoOp.DestPath = op.DestPath, op.File.SourcePath
+		undoOps = append(undoOps, undoOp)
+	}
+
+	if _, err := applyOperationsWithoutHistory(nil, path, undoOps, &Executor{}, &Reporter{}, fs); err != nil {
+		return fmt.Errorf("failed to undo operations: %w", err)
 	}
 
 	t.TType = core.TUndo
 	if err := LogToHistory(t); err != nil {
-		return err
+		return fmt.Errorf("failed to log undo to history: %w", err)
 	}
 
-	var executor Executor
-	for _, op := range t.Operations {
-		op.File.SourcePath, op.DestPath = op.DestPath, op.File.SourcePath
-		executor.Execute(op)
-	}
 	return nil
 }
 
@@ -79,24 +89,37 @@ func readLastTransaction(root string) (core.Transaction, error) {
 	}
 	lines := strings.Split(string(data), "\n")
 
-	var transaction core.Transaction
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := lines[i]
+	undoneIDs := make(map[string]bool)
+	var allTransactions []core.Transaction
+
+	// First pass: collect all transactions and identify undone ones
+	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		if err := json.Unmarshal([]byte(line), &transaction); err != nil {
+		var t core.Transaction
+		if err := json.Unmarshal([]byte(line), &t); err != nil {
 			return core.Transaction{}, err
 		}
-
-		if len(transaction.Operations) == 0 || transaction.Operations[0].File.RootDir != root {
-			continue
+		if len(t.Operations) > 0 && t.Operations[0].File.RootDir == root {
+			allTransactions = append(allTransactions, t)
+			if t.TType == core.TUndo {
+				undoneIDs[t.ID] = true
+			}
 		}
-		if transaction.TType == core.TUndo {
+	}
+
+	// Second pass: find the last TAction that hasn't been undone
+	for i := len(allTransactions) - 1; i >= 0; i-- {
+		t := allTransactions[i]
+		if t.TType == core.TUndo {
 			return core.Transaction{}, fmt.Errorf("last operation in %s was already undone: %w", root, ErrAlreadyUndone)
 		}
-		return transaction, nil
+		if t.TType == core.TAction && !undoneIDs[t.ID] {
+			return t, nil
+		}
 	}
+
 	return core.Transaction{}, fmt.Errorf("%w: %s", ErrNoHistory, root)
 }
 

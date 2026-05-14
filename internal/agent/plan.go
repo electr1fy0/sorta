@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/electr1fy0/sorta/internal/config"
+	"github.com/electr1fy0/sorta/internal/core"
+	"github.com/electr1fy0/sorta/internal/dupl"
+	"github.com/electr1fy0/sorta/internal/rename"
+	"github.com/electr1fy0/sorta/internal/sorter"
 )
 
 type ActionKind string
@@ -76,6 +82,23 @@ func (p *ExecutionPlan) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (a *PlannedAction) ToSorter() (core.Sorter, error) {
+	switch a.Kind {
+	case ActionDedupe:
+		return dupl.NewDuplicateFinder(), nil
+	case ActionRename:
+		return rename.NewSelectionSorter(a.Rename.Files, a.Rename.Hints)
+	case ActionSortRule:
+		rules := []config.RuleSpec{{
+			Folder:   a.SortRule.Folder,
+			Keywords: append([]string(nil), a.SortRule.Keywords...),
+		}}
+		return sorter.NewRuleSorter(rules)
+	default:
+		return nil, fmt.Errorf("action kind %q cannot be converted to a sorter", a.Kind)
+	}
 }
 
 func (a *PlannedAction) normalize() error {

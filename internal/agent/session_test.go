@@ -39,14 +39,10 @@ func TestSessionPlanParsesJSONPlan(t *testing.T) {
 	}
 
 	session := NewSession(client, SessionOptions{})
-	result, err := session.Plan(context.Background(), PlanInput{
-		Dir:         dir,
-		Instruction: "group files",
-	})
+	plan, err := session.Plan(context.Background(), dir, "group files", "model", nil)
 	if err != nil {
 		t.Fatalf("Plan returned error: %v", err)
 	}
-	plan := result.Plan
 
 	if len(plan.Actions) != 2 {
 		t.Fatalf("expected 2 planned actions, got %d", len(plan.Actions))
@@ -63,7 +59,7 @@ func TestSessionPlanFailsOnInvalidJSON(t *testing.T) {
 	}
 
 	session := NewSession(&stubClient{responses: []string{`not json`}}, SessionOptions{})
-	_, err := session.Plan(context.Background(), PlanInput{Dir: dir, Instruction: "test"})
+	_, err := session.Plan(context.Background(), dir, "test", "model", nil)
 	if err == nil || !strings.Contains(err.Error(), "parse plan JSON") {
 		t.Fatalf("expected parse error, got %v", err)
 	}
@@ -76,7 +72,7 @@ func TestSessionPlanFailsOnInvalidAction(t *testing.T) {
 	}
 
 	session := NewSession(&stubClient{responses: []string{`{"summary":"x","actions":[{"kind":"mkdir","mkdir":{"path":"../oops"}}]}`}}, SessionOptions{})
-	_, err := session.Plan(context.Background(), PlanInput{Dir: dir, Instruction: "test"})
+	_, err := session.Plan(context.Background(), dir, "test", "model", nil)
 	if err == nil || !strings.Contains(err.Error(), "invalid mkdir path") {
 		t.Fatalf("expected validation error, got %v", err)
 	}
@@ -89,11 +85,11 @@ func TestSessionPlanCanRequestFilenames(t *testing.T) {
 	}
 
 	session := NewSession(&stubClient{responses: []string{`{"summary":"Need examples to infer sorting rules","request_filenames":["Give 3 example filenames"],"actions":[]}`}}, SessionOptions{})
-	result, err := session.Plan(context.Background(), PlanInput{Dir: dir, Instruction: "sort by subject"})
+	plan, err := session.Plan(context.Background(), dir, "sort by subject", "model", nil)
 	if err != nil {
 		t.Fatalf("Plan returned error: %v", err)
 	}
-	if len(result.RequestFilenames) != 1 || result.RequestFilenames[0] != "Give 3 example filenames" {
-		t.Fatalf("unexpected filename requests: %#v", result.RequestFilenames)
+	if len(plan.RequestFilenames) != 1 || plan.RequestFilenames[0] != "Give 3 example filenames" {
+		t.Fatalf("unexpected filename requests: %#v", plan.RequestFilenames)
 	}
 }

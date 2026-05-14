@@ -10,13 +10,6 @@ type SessionOptions struct {
 	MaxSteps int
 }
 
-type PlanInput struct {
-	Dir         string
-	Instruction string
-	Model       string
-	Names       NamesInput
-}
-
 type Session struct {
 	client   llm.Client
 	maxSteps int
@@ -30,43 +23,30 @@ func NewSession(client llm.Client, opts SessionOptions) *Session {
 	return &Session{client: client, maxSteps: maxSteps}
 }
 
-type PlanResult struct {
-	Plan             ExecutionPlan
-	RequestFilenames []string
-}
-
-func (s *Session) Plan(ctx context.Context, input PlanInput) (PlanResult, error) {
-	snapshot, err := SummarizeDirectory(ctx, input.Dir)
+func (s *Session) Plan(ctx context.Context, dir, instruction, model string, hints []string) (ExecutionPlan, error) {
+	snapshot, err := SummarizeDirectory(ctx, dir)
 	if err != nil {
-		return PlanResult{}, err
+		return ExecutionPlan{}, err
 	}
 
 	userPrompt, err := BuildUserPrompt(PromptInput{
-		Directory:   input.Dir,
-		Instruction: input.Instruction,
+		Directory:   dir,
+		Instruction: instruction,
 		Observed:    snapshot,
-		UserHints:   append([]string(nil), input.Names.Hints...),
+		UserHints:   append([]string(nil), hints...),
 	})
 	if err != nil {
-		return PlanResult{}, err
+		return ExecutionPlan{}, err
 	}
 
 	raw, err := s.client.Run(ctx, llm.Request{
-		Model:        input.Model,
+		Model:        model,
 		SystemPrompt: GoalSystemPrompt(),
 		UserPrompt:   userPrompt,
 	})
 	if err != nil {
-		return PlanResult{}, err
+		return ExecutionPlan{}, err
 	}
 
-	plan, err := ParseExecutionPlan(raw)
-	if err != nil {
-		return PlanResult{}, err
-	}
-
-	return PlanResult{
-		Plan:             plan,
-		RequestFilenames: append([]string(nil), plan.RequestFilenames...),
-	}, nil
+	return ParseExecutionPlan(raw)
 }

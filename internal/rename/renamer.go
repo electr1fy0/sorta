@@ -117,3 +117,50 @@ func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.Fi
 
 	return ops, nil
 }
+
+type SelectionSorter struct {
+	renamer *Renamer
+	allowed map[string]struct{}
+}
+
+func NewSelectionSorter(files []string, hints []string) (*SelectionSorter, error) {
+	client, err := llm.NewClient(llm.DefaultModel)
+	if err != nil {
+		return nil, err
+	}
+	allowed := make(map[string]struct{}, len(files))
+	for _, file := range files {
+		allowed[filepath.Clean(file)] = struct{}{}
+	}
+	return &SelectionSorter{
+		renamer: NewRenamer(client, llm.DefaultModel, hints),
+		allowed: allowed,
+	}, nil
+}
+
+func (s *SelectionSorter) Decide(ctx context.Context, files []core.FileEntry) ([]core.FileOperation, error) {
+	if len(s.allowed) == 0 {
+		return s.renamer.Decide(ctx, files)
+	}
+
+	selected := make([]core.FileEntry, 0, len(files))
+	ops := make([]core.FileOperation, 0, len(files))
+	for _, file := range files {
+		rel, err := filepath.Rel(file.RootDir, file.SourcePath)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := s.allowed[filepath.Clean(rel)]; ok {
+			selected = append(selected, file)
+			continue
+		}
+		ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: file})
+	}
+
+	renames, err := s.renamer.Decide(ctx, selected)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, renames...)
+	return ops, nil
+}

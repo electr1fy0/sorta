@@ -56,8 +56,46 @@ func PlanOperationsWithIgnoreCtx(ctx context.Context, rootDir string, sorter cor
 	return operations, nil
 }
 
+func RunSorter(ctx context.Context, dir string, sorter core.Sorter, ignorePatterns []string) error {
+	ignoreMatcher, err := ignore.LoadIgnoreMatcher(dir, ignorePatterns)
+	if err != nil {
+		return fmt.Errorf("failed to load ignore patterns: %w", err)
+	}
+
+	plannedOps, err := PlanOperationsWithIgnoreCtx(ctx, dir, sorter, ignoreMatcher)
+	if err != nil {
+		return fmt.Errorf("failed to plan operations: %w", err)
+	}
+
+	cleanedOps := make([]core.FileOperation, 0, len(plannedOps))
+	for _, op := range plannedOps {
+		if op.DestPath == op.File.SourcePath {
+			continue
+		}
+		cleanedOps = append(cleanedOps, op)
+	}
+
+	if len(cleanedOps) == 0 {
+		fmt.Println("No operations needed.")
+		return nil
+	}
+
+	executor := &Executor{Operations: make([]core.FileOperation, 0, len(cleanedOps))}
+	reporter := &Reporter{}
+	res, err := ApplyOperationsCtx(ctx, dir, cleanedOps, executor, reporter)
+	if err != nil {
+		return fmt.Errorf("failed to apply operations: %w", err)
+	}
+	res.PrintSummary()
+	return nil
+}
+
 func ApplyOperations(rootDir string, operations []core.FileOperation, executor *Executor, reporter *Reporter) (*core.SortResult, error) {
 	return ApplyOperationsCtx(context.Background(), rootDir, operations, executor, reporter)
+}
+
+func ApplyOperationsWithFS(rootDir string, operations []core.FileOperation, executor *Executor, reporter *Reporter, fs core.FileSystem) (*core.SortResult, error) {
+	return ApplyOperationsCtxFS(context.Background(), rootDir, operations, executor, reporter, fs)
 }
 
 type rollbackAction struct {
@@ -66,14 +104,38 @@ type rollbackAction struct {
 }
 
 func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.FileOperation, executor *Executor, reporter *Reporter) (*core.SortResult, error) {
+	return applyOperationsCtxFS(ctx, rootDir, operations, executor, reporter, core.OSFileSystem{}, true)
+}
+
+func ApplyOperationsCtxFS(ctx context.Context, rootDir string, operations []core.FileOperation, executor *Executor, reporter *Reporter, fs core.FileSystem) (*core.SortResult, error) {
+	return applyOperationsCtxFS(ctx, rootDir, operations, executor, reporter, fs, true)
+}
+
+func applyOperationsWithoutHistory(ctx context.Context, rootDir string, operations []core.FileOperation, executor *Executor, reporter *Reporter, fs core.FileSystem) (*core.SortResult, error) {
+	return applyOperationsCtxFS(ctx, rootDir, operations, executor, reporter, fs, false)
+}
+
+func applyOperationsCtxFS(ctx context.Context, rootDir string, operations []core.FileOperation, executor *Executor, reporter *Reporter, fs core.FileSystem, logHistory bool) (*core.SortResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if executor == nil {
+		executor = &Executor{}
+	}
+	if reporter == nil {
+		reporter = &Reporter{}
+	}
+	if executor.FS == nil {
+		executor.FS = fs
+	}
 	result := &core.SortResult{}
-	txnDir, err := createTransactionDir(rootDir)
+	txnDir, err := createTransactionDirFS(rootDir, fs)
 	if err != nil {
 		return result, fmt.Errorf("failed to create transaction dir: %w", err)
 	}
 	rollback := make([]rollbackAction, 0, len(operations)+1)
 	failWithRollback := func(baseErr error, actions []rollbackAction) error {
-		rollbackErr := rollbackAll(actions)
+		rollbackErr := rollbackAllFS(actions, fs)
 		if rollbackErr != nil {
 			return fmt.Errorf("%w (rollback failed: %v)", baseErr, rollbackErr)
 		}
@@ -86,7 +148,7 @@ func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.F
 			return result, failWithRollback(fmt.Errorf("operation cancelled: %w", err), rollback)
 		}
 
-		moved, rb, err := applyAtomicOperation(op, executor, txnDir, i)
+		moved, rb, err := applyAtomicOperationFS(op, executor, txnDir, i, fs)
 		if moved || err != nil {
 			reporter.Report(*op, err)
 		}
@@ -127,7 +189,7 @@ func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.F
 
 	var nukedCount int
 	if DuplNuke {
-		nc, stagedRollback, err := stageDuplicateNuke(rootDir, txnDir)
+		nc, stagedRollback, err := stageDuplicateNukeFS(rootDir, txnDir, fs)
 		nukedCount = nc
 		if err != nil {
 			return result, failWithRollback(fmt.Errorf("failed to stage duplicates folder: %w", err), rollback)
@@ -136,16 +198,26 @@ func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.F
 	}
 
 	id := time.Now().UTC().Format(time.RFC3339Nano)
-	transaction := core.Transaction{TType: core.TAction, Operations: operations, ID: id, Irreversible: DuplNuke}
-	if err := LogToHistory(transaction); err != nil {
-		return result, failWithRollback(fmt.Errorf("failed to log history: %w", err), rollback)
+	irreversible := DuplNuke
+	for _, op := range operations {
+		if op.OpType == core.OpDelete {
+			irreversible = true
+			break
+		}
 	}
 
-	if err := os.RemoveAll(txnDir); err != nil {
+	if logHistory {
+		transaction := core.Transaction{TType: core.TAction, Operations: operations, ID: id, Irreversible: irreversible}
+		if err := LogToHistory(transaction); err != nil {
+			return result, failWithRollback(fmt.Errorf("failed to log history: %w", err), rollback)
+		}
+	}
+
+	if err := fs.RemoveAll(txnDir); err != nil {
 		return result, fmt.Errorf("failed to finalize transaction cleanup: %w", err)
 	}
 
-	if err := cleanEmptyFolders(rootDir); err != nil {
+	if err := cleanEmptyFoldersFS(rootDir, fs); err != nil {
 		return result, err
 	}
 
@@ -155,8 +227,8 @@ func ApplyOperationsCtx(ctx context.Context, rootDir string, operations []core.F
 	return result, nil
 }
 
-func cleanEmptyFolders(dir string) error {
-	entries, err := os.ReadDir(dir)
+func cleanEmptyFoldersFS(dir string, fs core.FileSystem) error {
+	entries, err := fs.ReadDir(dir)
 	if err != nil {
 		return fmt.Errorf("failed to read directory: %w", err)
 	}
@@ -165,21 +237,21 @@ func cleanEmptyFolders(dir string) error {
 		path := filepath.Join(dir, entry.Name())
 
 		if entry.IsDir() {
-			if err := cleanEmptyFolders(path); err != nil {
+			if err := cleanEmptyFoldersFS(path, fs); err != nil {
 				return err
 			}
 
-			subEntries, err := os.ReadDir(path)
+			subEntries, err := fs.ReadDir(path)
 			if err != nil {
 				continue
 			}
 
 			onlyDSStore := len(subEntries) == 1 && subEntries[0].Name() == ".DS_Store"
 			if onlyDSStore {
-				_ = os.Remove(filepath.Join(path, ".DS_Store"))
+				_ = fs.Remove(filepath.Join(path, ".DS_Store"))
 			}
 			if len(subEntries) == 0 || onlyDSStore {
-				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				if err := fs.Remove(path); err != nil && !fs.IsNotExist(err) {
 					return fmt.Errorf("failed to remove empty dir %q: %w", path, err)
 				}
 			}
@@ -298,24 +370,24 @@ func sortOperationsDeterministically(ops []core.FileOperation) {
 	})
 }
 
-func createTransactionDir(rootDir string) (string, error) {
+func createTransactionDirFS(rootDir string, fs core.FileSystem) (string, error) {
 	txnID := time.Now().UTC().Format("20060102T150405.000000000Z")
 	txnDir := filepath.Join(rootDir, ".sorta", "transactions", txnID)
-	if err := os.MkdirAll(txnDir, 0755); err != nil {
+	if err := fs.MkdirAll(txnDir, 0755); err != nil {
 		return "", err
 	}
 	return txnDir, nil
 }
 
-func stageDuplicateNuke(rootDir, txnDir string) (int, []rollbackAction, error) {
+func stageDuplicateNukeFS(rootDir, txnDir string, fs core.FileSystem) (int, []rollbackAction, error) {
 	duplicatePath := filepath.Join(rootDir, "duplicates")
-	duplicates, _ := os.ReadDir(duplicatePath)
+	duplicates, _ := fs.ReadDir(duplicatePath)
 	nukedCount := len(duplicates)
 
 	var rollback []rollbackAction
-	if _, err := os.Stat(duplicatePath); err == nil {
+	if _, err := fs.Stat(duplicatePath); err == nil {
 		staged := filepath.Join(txnDir, "nuked-duplicates")
-		if err := os.Rename(duplicatePath, staged); err != nil {
+		if err := fs.Rename(duplicatePath, staged); err != nil {
 			return 0, nil, fmt.Errorf("failed to rename duplicates to staged: %w", err)
 		}
 		rollback = append(rollback, rollbackAction{From: staged, To: duplicatePath})
@@ -323,17 +395,17 @@ func stageDuplicateNuke(rootDir, txnDir string) (int, []rollbackAction, error) {
 	return nukedCount, rollback, nil
 }
 
-func applyAtomicOperation(op *core.FileOperation, executor *Executor, txnDir string, idx int) (bool, []rollbackAction, error) {
+func applyAtomicOperationFS(op *core.FileOperation, executor *Executor, txnDir string, idx int, fs core.FileSystem) (bool, []rollbackAction, error) {
 	switch op.OpType {
 	case core.OpMove, core.OpDedupe, core.OpRename:
 		if op.DestPath == op.File.SourcePath {
 			return false, nil, nil
 		}
 		staged := filepath.Join(txnDir, "staged", fmt.Sprintf("%06d_%s", idx, filepath.Base(op.File.SourcePath)))
-		if err := os.MkdirAll(filepath.Dir(staged), 0755); err != nil {
+		if err := fs.MkdirAll(filepath.Dir(staged), 0755); err != nil {
 			return false, nil, err
 		}
-		if err := os.Rename(op.File.SourcePath, staged); err != nil {
+		if err := fs.Rename(op.File.SourcePath, staged); err != nil {
 			return false, nil, err
 		}
 		op.StagedPath = staged
@@ -343,17 +415,17 @@ func applyAtomicOperation(op *core.FileOperation, executor *Executor, txnDir str
 		if src == "" {
 			return false, nil, fmt.Errorf("cannot delete: empty source path")
 		}
-		if _, err := os.Stat(src); err != nil {
-			if os.IsNotExist(err) {
+		if _, err := fs.Stat(src); err != nil {
+			if fs.IsNotExist(err) {
 				return false, nil, nil
 			}
 			return false, nil, err
 		}
 		staged := filepath.Join(txnDir, "deletes", fmt.Sprintf("%06d_%s", idx, filepath.Base(src)))
-		if err := os.MkdirAll(filepath.Dir(staged), 0755); err != nil {
+		if err := fs.MkdirAll(filepath.Dir(staged), 0755); err != nil {
 			return false, nil, err
 		}
-		if err := os.Rename(src, staged); err != nil {
+		if err := fs.Rename(src, staged); err != nil {
 			return false, nil, err
 		}
 		executor.Operations = append(executor.Operations, *op)
@@ -365,25 +437,25 @@ func applyAtomicOperation(op *core.FileOperation, executor *Executor, txnDir str
 	}
 }
 
-func rollbackAll(actions []rollbackAction) error {
+func rollbackAllFS(actions []rollbackAction, fs core.FileSystem) error {
 	var rollbackErrors []error
 	for i := len(actions) - 1; i >= 0; i-- {
 		a := actions[i]
 		if a.From == "" || a.To == "" {
 			continue
 		}
-		if _, err := os.Stat(a.From); err != nil {
-			if os.IsNotExist(err) {
+		if _, err := fs.Stat(a.From); err != nil {
+			if fs.IsNotExist(err) {
 				continue
 			}
 			rollbackErrors = append(rollbackErrors, err)
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(a.To), 0755); err != nil {
+		if err := fs.MkdirAll(filepath.Dir(a.To), 0755); err != nil {
 			rollbackErrors = append(rollbackErrors, err)
 			continue
 		}
-		if err := os.Rename(a.From, a.To); err != nil {
+		if err := fs.Rename(a.From, a.To); err != nil {
 			rollbackErrors = append(rollbackErrors, err)
 		}
 	}

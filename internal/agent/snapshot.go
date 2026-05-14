@@ -10,8 +10,6 @@ import (
 	"github.com/electr1fy0/sorta/internal/ops"
 )
 
-// Caps observed files at 120 and folders at 80.
-// Full count still tracked in FileCount/FolderCount.
 func SummarizeDirectory(ctx context.Context, dir string) (DirectorySnapshot, error) {
 	const maxFiles = 120
 	const maxFolders = 80

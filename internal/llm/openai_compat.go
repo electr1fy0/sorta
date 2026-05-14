@@ -6,7 +6,8 @@ import (
 	"os"
 	"strings"
 
-	openai "github.com/sashabaranov/go-openai"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 )
 
 type PlannerClient struct {
@@ -15,15 +16,18 @@ type PlannerClient struct {
 }
 
 func NewClient(model string) (*PlannerClient, error) {
-	cfg, err := loadAPIConfig()
-	if err != nil {
-		return nil, err
+	key := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+	if key == "" {
+		return nil, fmt.Errorf("missing API credentials: set GROQ_API_KEY")
 	}
 
-	cfg.BaseURL = "https://api.groq.com/openai/v1"
+	client := openai.NewClient(
+		option.WithAPIKey(key),
+		option.WithBaseURL("https://api.groq.com/openai/v1/"),
+	)
 
 	return &PlannerClient{
-		client:       openai.NewClientWithConfig(cfg),
+		client:       &client,
 		defaultModel: model,
 	}, nil
 }
@@ -34,16 +38,20 @@ func (c *PlannerClient) Run(ctx context.Context, req Request) (string, error) {
 		model = c.defaultModel
 	}
 
-	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: model,
-		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: req.SystemPrompt},
-			{Role: openai.ChatMessageRoleUser, Content: req.UserPrompt},
+	params := openai.ChatCompletionNewParams{
+		Model: openai.ChatModel(model),
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(req.SystemPrompt),
+			openai.UserMessage(req.UserPrompt),
 		},
-		ResponseFormat: &openai.ChatCompletionResponseFormat{
-			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+		ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONObject: &openai.ResponseFormatJSONObjectParam{
+				Type: "json_object",
+			},
 		},
-	})
+	}
+
+	resp, err := c.client.Chat.Completions.New(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("failed to create chat completion: %w", err)
 	}
@@ -53,11 +61,4 @@ func (c *PlannerClient) Run(ctx context.Context, req Request) (string, error) {
 	}
 
 	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
-}
-
-func loadAPIConfig() (openai.ClientConfig, error) {
-	if key := strings.TrimSpace(os.Getenv("GROQ_API_KEY")); key != "" {
-		return openai.DefaultConfig(key), nil
-	}
-	return openai.ClientConfig{}, fmt.Errorf("missing API credentials: set GROQ_API_KEY")
 }
