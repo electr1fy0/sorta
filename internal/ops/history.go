@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -61,7 +62,7 @@ func undoWithFS(path string, fs core.FileSystem) error {
 		undoOps = append(undoOps, undoOp)
 	}
 
-	if _, err := applyOperationsWithoutHistory(nil, path, undoOps, &Executor{}, &Reporter{}, fs); err != nil {
+	if _, err := applyOperationsWithoutHistory(context.TODO(), path, undoOps, &Executor{}, &Reporter{}, fs); err != nil {
 		return fmt.Errorf("failed to undo operations: %w", err)
 	}
 

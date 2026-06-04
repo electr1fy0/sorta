@@ -17,6 +17,11 @@ var rootCmd = &cobra.Command{
 	Use:   "sorta",
 	Short: "CLI to sort files based on keywords and extensions",
 	Long:  "A file organization tool that can sort by extension, config rules, or find duplicates.",
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		if cmd.Name() != "update" && cmd.Name() != "version" {
+			CheckForUpdates()
+		}
+	},
 }
 
 func Execute() {
