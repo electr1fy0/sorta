@@ -14,32 +14,22 @@ Output: A JSON object containing a "filenames" key with an array of transformed 
 
 PAYLOAD:`
 
-var DefaultConfig = `// Config file for 'sorta'
-// Config version: v0.4.2
-//
-// Each line defines how files should be sorted.
-// Format: folderName = key1,key2,key3
-//
-// - folderName is the target folder for those files.
-// - key1, key2, key3, etc are keywords to match in file names.
-// - You can list one or many keywords after the '='.
-// - Lines starting with '//' are comments and ignored.
-// - Add a ! followed by an ignore pattern to skip paths/files while scanning.
-//   Examples: !node_modules, !*.tmp, !archive/*.zip
-// - Ignore rules are also loaded from .sortaignore, .sorta/ignore, and ~/.sorta/ignore.
-// - * as a keyword matches all filenames which don't contain the other keywords
-// - . as a foldernames means the root folder that you passed to sorta.
-// - To flatten the subfolder tree, use . = *
-// - Use regex for kewyords. Wrap your expression with: regex(). No quotes are required.
-// - foldername can also be a relative folderpath. e.g. foo/bar/oof = rab creates a folder tree.
-//
-// Example:
-//
-// Finance=invoice,bill,txt
-// Music=track,song
-// Study=notes,book
-// 2024-Papers=regex(^PAP.*2024$)
-// others=*
-//
-// Important folder that sorta won't scan:
-// !my-secret-folder`
+var DefaultConfig = `rules:
+  - folder: Finance
+    keywords: [invoice, bill, .pdf]
+
+  - folder: Music
+    keywords: [track, song, .mp3]
+
+  - folder: Images
+    keywords: [.jpg, .png, .gif]
+
+  - folder: Archive
+    keywords: [.zip, .tar.gz]
+
+  - folder: Others
+    catch_all: true
+
+ignore:
+  - "*.tmp"
+`

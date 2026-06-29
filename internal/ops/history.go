@@ -100,7 +100,7 @@ func readLastTransaction(root string) (core.Transaction, error) {
 		}
 		var t core.Transaction
 		if err := json.Unmarshal([]byte(line), &t); err != nil {
-			return core.Transaction{}, err
+			continue
 		}
 		if len(t.Operations) > 0 && t.Operations[0].File.RootDir == root {
 			allTransactions = append(allTransactions, t)
@@ -147,7 +147,7 @@ func GetHistory() ([]core.Transaction, error) {
 		}
 		var t core.Transaction
 		if err := json.Unmarshal([]byte(line), &t); err != nil {
-			return nil, err
+			continue
 		}
 		transactions = append(transactions, t)
 	}

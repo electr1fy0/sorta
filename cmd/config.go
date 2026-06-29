@@ -7,11 +7,25 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/electr1fy0/sorta/internal/config"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
+
+type yamlConfigDump struct {
+	Rules  []yamlRuleDump `yaml:"rules"`
+	Ignore []string       `yaml:"ignore,omitempty"`
+}
+
+type yamlRuleDump struct {
+	Folder    string   `yaml:"folder"`
+	Keywords  []string `yaml:"keywords,omitempty"`
+	Regex     []string `yaml:"regex,omitempty"`
+	Priority  int      `yaml:"priority,omitempty"`
+	Match     string   `yaml:"match,omitempty"`
+	CatchAll  bool     `yaml:"catch_all,omitempty"`
+}
 
 var configCmd = &cobra.Command{
 	Use:     "config",
@@ -112,129 +126,182 @@ var configListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
-		fmt.Fprintln(w, "FOLDER\tMATCHERS")
-		fmt.Fprintln(w, "------\t--------")
 
-		for i, folder := range cfg.Foldernames {
-			var matchers []string
-			for _, m := range cfg.Matchers[i] {
-				if m.Regex != nil {
-					matchers = append(matchers, fmt.Sprintf("regex(%s)", m.Regex.String()))
-				} else {
-					matchers = append(matchers, m.Raw)
+		if len(cfg.Rules) > 0 {
+			fmt.Println("RULES:")
+			for i, rule := range cfg.Rules {
+				parts := make([]string, 0, len(rule.Matchers))
+				for _, m := range rule.Matchers {
+					s := matcherString(m)
+					parts = append(parts, s)
 				}
+				flags := ""
+				if rule.MatchAll {
+					flags += " [match: all]"
+				}
+				if rule.Priority != 0 {
+					flags += fmt.Sprintf(" [priority: %d]", rule.Priority)
+				}
+				fmt.Printf("  %d. %s = %s%s\n", i+1, rule.Folder, strings.Join(parts, ", "), flags)
 			}
-			fmt.Fprintf(w, "%s\t%s\n", folder, strings.Join(matchers, ", "))
 		}
 
 		if len(cfg.Blacklist) > 0 {
-			fmt.Fprintln(w, "\nIGNORE PATTERNS")
-			fmt.Fprintln(w, "---------------")
+			fmt.Println("\nIGNORE PATTERNS:")
 			for _, b := range cfg.Blacklist {
-				fmt.Fprintln(w, b)
-			}
-		}
-		if len(cfg.Warnings) > 0 {
-			fmt.Fprintln(w, "\nWARNINGS")
-			fmt.Fprintln(w, "--------")
-			for _, warn := range cfg.Warnings {
-				fmt.Fprintln(w, warn)
+				fmt.Printf("  !%s\n", b)
 			}
 		}
 
-		return w.Flush()
+		if len(cfg.Warnings) > 0 {
+			fmt.Println("\nWARNINGS:")
+			for _, w := range cfg.Warnings {
+				fmt.Printf("  %s\n", w)
+			}
+		}
+
+		return nil
 	},
+}
+
+func matcherString(m config.TypedMatcher) string {
+	prefix := ""
+	if m.Negate {
+		prefix = "!"
+	}
+	switch m.Type {
+	case config.MatcherRegex:
+		return fmt.Sprintf("%sregex(%s)", prefix, m.Raw)
+	case config.MatcherCatchAll:
+		return "*"
+	case config.MatcherExtension:
+		return prefix + m.Raw
+	default:
+		return prefix + m.Raw
+	}
 }
 
 var configAddCmd = &cobra.Command{
 	Use:     `add "<foldername> = <keyword1>, <keyword2>..."`,
-	Short:   "Add new folder-to-keyword rule to the config file",
+	Short:   "Add new rule to the config file",
 	Aliases: []string{"new", "a"},
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		parts := strings.Split(args[0], "=")
-
+		if len(parts) != 2 {
+			return fmt.Errorf("usage: add \"<foldername> = <keyword1>, <keyword2>...\"")
+		}
 		foldername := strings.TrimSpace(parts[0])
-		keywords := strings.Split(parts[1], ",")
+		rawKeywords := strings.Split(parts[1], ",")
+		keywords := make([]string, 0, len(rawKeywords))
+		for _, k := range rawKeywords {
+			k = strings.TrimSpace(k)
+			if k != "" {
+				keywords = append(keywords, k)
+			}
+		}
 
-		return manageConfig(foldername, "add", keywords)
+		return manageConfigAdd(foldername, keywords)
 	},
 }
 
 var configRemoveCmd = &cobra.Command{
 	Use:     "remove <foldername>",
-	Short:   "Remove a folder-to-keyword rule from the config file",
+	Short:   "Remove a rule by folder name from the config file",
 	Aliases: []string{"rm", "del", "delete"},
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		keywords := args[0:]
-		return manageConfig("", "remove", keywords)
+		return manageConfigRemove(args[0])
 	},
 }
 
-func manageConfig(foldername, operation string, keywords []string) error {
+func getConfigFilePath() (string, error) {
 	if configPath != "" {
 		var err error
 		configPath, err = resolvePath(configPath)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
+	return config.ResolveConfigPath(configPath, ".")
+}
 
-	path, err := config.ResolveConfigPath(configPath, ".")
+func manageConfigAdd(foldername string, keywords []string) error {
+	path, err := getConfigFilePath()
 	if err != nil {
 		return err
 	}
 
-	switch operation {
-	case "add":
-		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			return fmt.Errorf("error opening config file: %w", err)
-		}
-		defer f.Close()
-		keyLine := strings.Join(keywords, ", ")
-		line := fmt.Sprintf("%s = %s\n", foldername, keyLine)
-		if _, err := f.WriteString(line); err != nil {
-			return fmt.Errorf("error writing to config file: %w", err)
-		}
-		fmt.Printf("Added rule: %s=%s to %s\n", foldername, keyLine, path)
-		return nil
-	case "remove":
-		data, err := os.ReadFile(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("config file not found, nothing to remove")
-			}
-			return fmt.Errorf("error reading config file: %w", err)
-		}
-
-		lines := strings.Split(string(data), "\n")
-		var sb strings.Builder
-		found := false
-		for _, line := range lines {
-			if strings.HasPrefix(line, keywords[0]+" =") || strings.HasPrefix(line, "!"+keywords[0]) {
-				found = true
-				continue
-			}
-			if line != "" {
-				sb.WriteString(line + "\n")
-			}
-		}
-
-		if !found {
-			return fmt.Errorf("no rule found for folder: %s", keywords[0])
-		}
-
-		if err := os.WriteFile(path, []byte(sb.String()), 0600); err != nil {
-			return fmt.Errorf("error writing updated config file: %w", err)
-		}
-		fmt.Printf("Removed rule for foldername: %s from %s\n", keywords[0], path)
-		return nil
-	default:
-		return fmt.Errorf("unknown operation: %s", operation)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("error reading config file: %w", err)
 	}
+
+	var ys yamlConfigDump
+	if err := yaml.Unmarshal(data, &ys); err != nil {
+		return fmt.Errorf("error parsing config: %w", err)
+	}
+
+	ys.Rules = append(ys.Rules, yamlRuleDump{
+		Folder:   foldername,
+		Keywords: keywords,
+	})
+
+	out, err := yaml.Marshal(&ys)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %w", err)
+	}
+
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		return fmt.Errorf("error writing config file: %w", err)
+	}
+
+	fmt.Printf("Added rule %q with keywords %v to %s\n", foldername, keywords, path)
+	return nil
+}
+
+func manageConfigRemove(foldername string) error {
+	path, err := getConfigFilePath()
+	if err != nil {
+		return err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("error reading config file: %w", err)
+	}
+
+	var ys yamlConfigDump
+	if err := yaml.Unmarshal(data, &ys); err != nil {
+		return fmt.Errorf("error parsing config: %w", err)
+	}
+
+	filtered := make([]yamlRuleDump, 0, len(ys.Rules))
+	found := false
+	for _, r := range ys.Rules {
+		if r.Folder == foldername {
+			found = true
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+
+	if !found {
+		return fmt.Errorf("no rule found for folder: %s", foldername)
+	}
+
+	ys.Rules = filtered
+	out, err := yaml.Marshal(&ys)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %w", err)
+	}
+
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		return fmt.Errorf("error writing config file: %w", err)
+	}
+
+	fmt.Printf("Removed rule for folder: %s from %s\n", foldername, path)
+	return nil
 }
 
 var configPathCmd = &cobra.Command{

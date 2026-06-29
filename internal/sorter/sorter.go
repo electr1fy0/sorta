@@ -2,7 +2,10 @@ package sorter
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/electr1fy0/sorta/internal/config"
 	"github.com/electr1fy0/sorta/internal/core"
@@ -49,7 +52,8 @@ func (s *RuleSorter) Decide(ctx context.Context, files []core.FileEntry) ([]core
 }
 
 func decide(ctx context.Context, configData *config.ConfigData, files []core.FileEntry) ([]core.FileOperation, error) {
-	ops := make([]core.FileOperation, 0, 10)
+	ops := make([]core.FileOperation, 0, len(files))
+	seen := make(map[string]bool)
 
 	for _, file := range files {
 		if err := ctx.Err(); err != nil {
@@ -60,14 +64,32 @@ func decide(ctx context.Context, configData *config.ConfigData, files []core.Fil
 
 		if destFolder == "" {
 			ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: file})
-		} else {
-			ops = append(ops, core.FileOperation{
-				OpType:   core.OpMove,
-				File:     file,
-				Size:     file.Size,
-				DestPath: filepath.Join(file.RootDir, destFolder, filename),
-			})
+			continue
 		}
+
+		name := filename
+		ext := filepath.Ext(name)
+		stem := strings.TrimSuffix(name, ext)
+		counter := 1
+		destPath := filepath.Join(file.RootDir, destFolder, name)
+		for seen[destPath] {
+			name = fmt.Sprintf("%s_v%d%s", stem, counter, ext)
+			destPath = filepath.Join(file.RootDir, destFolder, name)
+			counter++
+		}
+
+		if _, err := os.Stat(destPath); err == nil {
+			ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: file})
+			continue
+		}
+
+		seen[destPath] = true
+		ops = append(ops, core.FileOperation{
+			OpType:   core.OpMove,
+			File:     file,
+			Size:     file.Size,
+			DestPath: destPath,
+		})
 	}
 
 	return ops, nil

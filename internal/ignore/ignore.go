@@ -33,6 +33,7 @@ func LoadIgnoreMatcher(rootDir string, inlinePatterns []string) (*IgnoreMatcher,
 	rules = append(rules, sanitizeInlinePatterns(inlinePatterns)...)
 
 	paths := []string{
+		filepath.Join(rootDir, ".gitignore"),
 		filepath.Join(rootDir, ".sortaignore"),
 		filepath.Join(rootDir, ".sorta", "ignore"),
 	}

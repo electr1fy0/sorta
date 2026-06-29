@@ -70,20 +70,25 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 }
 
 func AppendLineAtomic(path string, line string, perm os.FileMode) error {
-	var existing []byte
-	data, err := os.ReadFile(path)
-	if err == nil {
-		existing = data
-	} else if !os.IsNotExist(err) {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	buf := make([]byte, 0, len(existing)+len(line)+1)
-	buf = append(buf, existing...)
-	buf = append(buf, line...)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, perm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(line); err != nil {
+		return err
+	}
 	if len(line) == 0 || line[len(line)-1] != '\n' {
-		buf = append(buf, '\n')
+		if _, err := f.WriteString("\n"); err != nil {
+			return err
+		}
 	}
 
-	return WriteFileAtomic(path, buf, perm)
+	return f.Sync()
 }

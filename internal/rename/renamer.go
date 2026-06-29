@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,6 +16,30 @@ import (
 )
 
 var defaultPrompt = templates.DefaultPrompt
+
+var binaryExts = map[string]bool{
+	".o": true, ".obj": true, ".a": true, ".lib": true,
+	".so": true, ".dylib": true, ".dll": true,
+	".class": true, ".jar": true,
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".bmp": true, ".ico": true,
+	".mp4": true, ".avi": true, ".mkv": true, ".mov": true, ".webm": true,
+	".mp3": true, ".wav": true, ".flac": true, ".aac": true, ".ogg": true,
+	".zip": true, ".tar": true, ".gz": true, ".bz2": true, ".xz": true, ".7z": true, ".rar": true,
+	".pyc": true, ".pyo": true, ".pyd": true,
+	".exe": true, ".bin": true, ".dmg": true, ".iso": true,
+	".db": true, ".sqlite": true, ".sqlite3": true,
+	".ttf": true, ".otf": true, ".woff": true, ".woff2": true, ".eot": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+}
+
+func isBinaryExt(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return binaryExts[ext]
+}
+
+func hasPathTraversal(name string) bool {
+	return strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\")
+}
 
 type CaseType int
 
@@ -211,11 +236,27 @@ func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.Fi
 
 	useLLM := len(r.hints) > 0 && r.client != nil
 
+	var llmFiles []core.FileEntry
+	var ops []core.FileOperation
+
+	if useLLM {
+		for _, f := range files {
+			if isBinaryExt(f.SourcePath) {
+				ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: f})
+			} else {
+				llmFiles = append(llmFiles, f)
+			}
+		}
+		if len(llmFiles) == 0 {
+			return ops, nil
+		}
+	}
+
 	var newNames []string
 
 	if useLLM {
 		var err error
-		newNames, err = r.renameWithLLM(ctx, files)
+		newNames, err = r.renameWithLLM(ctx, llmFiles)
 		if err != nil {
 			return nil, err
 		}
@@ -232,39 +273,81 @@ func (r *Renamer) Decide(ctx context.Context, files []core.FileEntry) ([]core.Fi
 		}
 	}
 
-	ops := make([]core.FileOperation, 0, len(files))
 	seen := make(map[string]bool)
 
-	for i, newName := range newNames {
-		originalName := filepath.Base(files[i].SourcePath)
+	if useLLM {
+		buildOps := func(files []core.FileEntry, names []string) []core.FileOperation {
+			out := make([]core.FileOperation, 0, len(files))
+			for i, newName := range names {
+				if hasPathTraversal(newName) {
+					out = append(out, core.FileOperation{OpType: core.OpSkip, File: files[i]})
+					continue
+				}
 
-		if !useLLM && r.caseType != CaseNone && newName == originalName {
-			ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: files[i]})
-			continue
+				originalName := filepath.Base(files[i].SourcePath)
+				if newName == originalName {
+					out = append(out, core.FileOperation{OpType: core.OpSkip, File: files[i]})
+					continue
+				}
+
+				newName = resolveCollision(newName, seen)
+				seen[newName] = true
+				destPath := filepath.Join(filepath.Dir(files[i].SourcePath), newName)
+
+				if _, err := os.Stat(destPath); err == nil {
+					out = append(out, core.FileOperation{OpType: core.OpSkip, File: files[i]})
+					continue
+				}
+
+				out = append(out, core.FileOperation{
+					OpType:   core.OpRename,
+					File:     files[i],
+					DestPath: destPath,
+					Size:     files[i].Size,
+				})
+			}
+			return out
 		}
+		ops = append(ops, buildOps(llmFiles, newNames)...)
+	} else {
+		for i, newName := range newNames {
+			originalName := filepath.Base(files[i].SourcePath)
 
-		base := newName
-		ext := filepath.Ext(newName)
-		nameNoExt := strings.TrimSuffix(base, ext)
-		counter := 1
+			if r.caseType != CaseNone && newName == originalName {
+				ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: files[i]})
+				continue
+			}
 
-		for seen[newName] {
-			newName = fmt.Sprintf("%s_v%d%s", nameNoExt, counter, ext)
-			counter++
+			newName = resolveCollision(newName, seen)
+			seen[newName] = true
+			destPath := filepath.Join(filepath.Dir(files[i].SourcePath), newName)
+
+			if _, err := os.Stat(destPath); err == nil {
+				ops = append(ops, core.FileOperation{OpType: core.OpSkip, File: files[i]})
+				continue
+			}
+
+			ops = append(ops, core.FileOperation{
+				OpType:   core.OpRename,
+				File:     files[i],
+				DestPath: destPath,
+				Size:     files[i].Size,
+			})
 		}
-		seen[newName] = true
-		destPath := filepath.Join(filepath.Dir(files[i].SourcePath), newName)
-
-		op := core.FileOperation{
-			OpType:   core.OpRename,
-			File:     files[i],
-			DestPath: destPath,
-			Size:     files[i].Size,
-		}
-		ops = append(ops, op)
 	}
 
 	return ops, nil
+}
+
+func resolveCollision(name string, seen map[string]bool) string {
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	counter := 1
+	for seen[name] {
+		name = fmt.Sprintf("%s_v%d%s", base, counter, ext)
+		counter++
+	}
+	return name
 }
 
 func (r *Renamer) renameWithLLM(ctx context.Context, files []core.FileEntry) ([]string, error) {

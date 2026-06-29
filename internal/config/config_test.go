@@ -6,40 +6,87 @@ import (
 	"testing"
 )
 
-func TestParseConfigFromReader(t *testing.T) {
-	t.Run("basic", func(t *testing.T) {
-		input := `Images = jpg, png, .gif
-Documents = pdf, docx
+func TestParseYAML(t *testing.T) {
+	t.Run("basic rules", func(t *testing.T) {
+		input := `
+rules:
+  - folder: Images
+    keywords: [jpg, png, .gif]
+  - folder: Documents
+    keywords: [pdf, docx]
 `
-		cfg, err := parseConfigFromReader(strings.NewReader(input))
+		cfg, err := parseYAML([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(cfg.Foldernames) != 2 {
-			t.Fatalf("expected 2 folders, got %d", len(cfg.Foldernames))
+		if len(cfg.Rules) != 2 {
+			t.Fatalf("expected 2 rules, got %d", len(cfg.Rules))
 		}
-		if cfg.Foldernames[0] != "Images" || cfg.Foldernames[1] != "Documents" {
-			t.Errorf("unexpected folder names: %v", cfg.Foldernames)
+		if cfg.Rules[0].Folder != "Images" || cfg.Rules[1].Folder != "Documents" {
+			t.Errorf("unexpected folders: %q %q", cfg.Rules[0].Folder, cfg.Rules[1].Folder)
 		}
-		if len(cfg.Matchers[0]) != 3 || len(cfg.Matchers[1]) != 2 {
-			t.Errorf("unexpected matcher counts: %d %d", len(cfg.Matchers[0]), len(cfg.Matchers[1]))
+		if len(cfg.Rules[0].Matchers) != 3 || len(cfg.Rules[1].Matchers) != 2 {
+			t.Errorf("unexpected matcher counts: %d %d", len(cfg.Rules[0].Matchers), len(cfg.Rules[1].Matchers))
 		}
 	})
 
-	t.Run("comments and blank lines", func(t *testing.T) {
-		input := "# this is a comment\n// also a comment\n\nImages = jpg\n"
-		cfg, err := parseConfigFromReader(strings.NewReader(input))
+	t.Run("priority and match all", func(t *testing.T) {
+		input := `
+rules:
+  - folder: Finance
+    keywords: [.pdf, invoice]
+    priority: 10
+    match: all
+  - folder: Docs
+    keywords: [.pdf]
+    priority: 5
+`
+		cfg, err := parseYAML([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(cfg.Foldernames) != 1 || cfg.Foldernames[0] != "Images" {
-			t.Errorf("expected 1 folder, got %v", cfg.Foldernames)
+		if len(cfg.Rules) != 2 {
+			t.Fatalf("expected 2 rules, got %d", len(cfg.Rules))
+		}
+		if cfg.Rules[0].Priority != 10 || !cfg.Rules[0].MatchAll {
+			t.Errorf("expected priority 10, match_all=true, got %d %v", cfg.Rules[0].Priority, cfg.Rules[0].MatchAll)
+		}
+		if cfg.Rules[1].Priority != 5 || cfg.Rules[1].MatchAll {
+			t.Errorf("expected priority 5, match_all=false, got %d %v", cfg.Rules[1].Priority, cfg.Rules[1].MatchAll)
 		}
 	})
 
-	t.Run("blacklist", func(t *testing.T) {
-		input := "Images = jpg\n!*.bak\n!temp/\n"
-		cfg, err := parseConfigFromReader(strings.NewReader(input))
+	t.Run("catch all", func(t *testing.T) {
+		input := `
+rules:
+  - folder: Other
+    catch_all: true
+  - folder: Images
+    keywords: [jpg]
+    priority: 10
+`
+		cfg, err := parseYAML([]byte(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Rules) != 2 {
+			t.Fatalf("expected 2 rules, got %d", len(cfg.Rules))
+		}
+		if len(cfg.Rules[0].Matchers) != 1 || cfg.Rules[0].Matchers[0].Type != MatcherCatchAll {
+			t.Errorf("expected catch-all matcher on first rule")
+		}
+	})
+
+	t.Run("ignore list", func(t *testing.T) {
+		input := `
+rules:
+  - folder: Images
+    keywords: [jpg]
+ignore:
+  - "*.bak"
+  - temp/
+`
+		cfg, err := parseYAML([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,66 +98,123 @@ Documents = pdf, docx
 		}
 	})
 
-	t.Run("warnings on malformed lines", func(t *testing.T) {
-		input := "Images = jpg\nbadline\n"
-		cfg, err := parseConfigFromReader(strings.NewReader(input))
+	t.Run("regex matchers", func(t *testing.T) {
+		input := `
+rules:
+  - folder: Code
+    regex: ["\\.go$", "\\.ts$"]
+`
+		cfg, err := parseYAML([]byte(input))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(cfg.Warnings) == 0 {
-			t.Error("expected warnings for bad lines")
+		if len(cfg.Rules[0].Matchers) != 2 {
+			t.Fatalf("expected 2 matchers, got %d", len(cfg.Rules[0].Matchers))
+		}
+		if cfg.Rules[0].Matchers[0].Type != MatcherRegex || cfg.Rules[0].Matchers[1].Type != MatcherRegex {
+			t.Error("expected regex matchers")
+		}
+	})
+
+	t.Run("negated keyword", func(t *testing.T) {
+		input := `
+rules:
+  - folder: Work
+    keywords: [.pdf, "!draft"]
+`
+		cfg, err := parseYAML([]byte(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Rules[0].Matchers) != 2 {
+			t.Fatalf("expected 2 matchers, got %d", len(cfg.Rules[0].Matchers))
+		}
+		if !cfg.Rules[0].Matchers[1].Negate {
+			t.Error("expected negate on 'draft'")
+		}
+	})
+
+	t.Run("comments", func(t *testing.T) {
+		input := `
+# this is a comment
+rules:
+  - folder: Images
+    keywords: [jpg]
+`
+		cfg, err := parseYAML([]byte(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Rules) != 1 || cfg.Rules[0].Folder != "Images" {
+			t.Errorf("expected 1 rule, got %+v", cfg.Rules)
 		}
 	})
 
 	t.Run("empty config", func(t *testing.T) {
-		_, err := parseConfigFromReader(strings.NewReader(""))
-		if err == nil || !strings.Contains(err.Error(), "empty") {
+		_, err := parseYAML([]byte(""))
+		if err == nil || !strings.Contains(err.Error(), "at least one rule") {
 			t.Errorf("expected empty config error, got %v", err)
-		}
-	})
-
-	t.Run("regex matcher", func(t *testing.T) {
-		input := "Code = regex(\\.go$), regex(\\.ts$)\n"
-		cfg, err := parseConfigFromReader(strings.NewReader(input))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(cfg.Matchers[0]) != 2 {
-			t.Fatalf("expected 2 matchers, got %d", len(cfg.Matchers[0]))
-		}
-		if cfg.Matchers[0][0].Regex == nil || cfg.Matchers[0][1].Regex == nil {
-			t.Error("expected regex matchers")
 		}
 	})
 }
 
 func TestParseInline(t *testing.T) {
-	cfg, err := ParseInline(`Images = jpg\nDocuments = pdf`)
+	cfg, err := ParseInline("rules:\n  - folder: Images\n    keywords: [jpg]\n  - folder: Documents\n    keywords: [pdf]")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Foldernames) != 2 {
-		t.Errorf("expected 2 folders, got %d", len(cfg.Foldernames))
+	if len(cfg.Rules) != 2 {
+		t.Errorf("expected 2 rules, got %d", len(cfg.Rules))
 	}
 }
 
-func TestParseMatcher(t *testing.T) {
-	t.Run("raw keyword", func(t *testing.T) {
-		m, err := parseMatcher("jpg")
+func TestParseMatcherStr(t *testing.T) {
+	t.Run("keyword", func(t *testing.T) {
+		m, err := parseMatcherStr("jpg")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if m.Raw != "jpg" || m.Regex != nil {
-			t.Errorf("expected raw matcher, got %+v", m)
+		if m.Type != MatcherKeyword || m.Raw != "jpg" || m.Negate {
+			t.Errorf("expected keyword matcher, got %+v", m)
+		}
+	})
+
+	t.Run("extension", func(t *testing.T) {
+		m, err := parseMatcherStr(".pdf")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Type != MatcherExtension || m.Raw != ".pdf" {
+			t.Errorf("expected extension matcher, got %+v", m)
+		}
+	})
+
+	t.Run("catch all", func(t *testing.T) {
+		m, err := parseMatcherStr("*")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Type != MatcherCatchAll {
+			t.Errorf("expected catch-all matcher, got %+v", m)
+		}
+	})
+
+	t.Run("negated", func(t *testing.T) {
+		m, err := parseMatcherStr("!draft")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Type != MatcherKeyword || m.Raw != "draft" || !m.Negate {
+			t.Errorf("expected negated keyword, got %+v", m)
 		}
 	})
 
 	t.Run("valid regex", func(t *testing.T) {
-		m, err := parseMatcher("regex(\\.go$)")
+		m, err := parseMatcherStr("regex(\\.go$)")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if m.Regex == nil {
+		if m.Type != MatcherRegex || m.Regex == nil {
 			t.Fatal("expected regex matcher")
 		}
 		if !m.Regex.MatchString("main.go") {
@@ -122,14 +226,14 @@ func TestParseMatcher(t *testing.T) {
 	})
 
 	t.Run("invalid regex", func(t *testing.T) {
-		_, err := parseMatcher("regex([invalid)")
+		_, err := parseMatcherStr("regex([invalid)")
 		if err == nil {
 			t.Error("expected error for invalid regex")
 		}
 	})
 
 	t.Run("malformed regex wrapper", func(t *testing.T) {
-		_, err := parseMatcher("regex(jpg")
+		_, err := parseMatcherStr("regex(jpg")
 		if err == nil {
 			t.Error("expected error for malformed regex")
 		}
@@ -145,8 +249,8 @@ func TestBuildConfigData(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(cfg.Foldernames) != 2 {
-			t.Fatalf("expected 2 folders, got %d", len(cfg.Foldernames))
+		if len(cfg.Rules) != 2 {
+			t.Fatalf("expected 2 rules, got %d", len(cfg.Rules))
 		}
 	})
 
@@ -159,12 +263,12 @@ func TestBuildConfigData(t *testing.T) {
 		}
 	})
 
-	t.Run("no keywords", func(t *testing.T) {
+	t.Run("no matchers", func(t *testing.T) {
 		_, err := BuildConfigData([]RuleSpec{
 			{Folder: "Images", Keywords: []string{}},
 		})
 		if err == nil {
-			t.Error("expected error for no keywords")
+			t.Error("expected error for no matchers")
 		}
 	})
 
@@ -178,10 +282,15 @@ func TestBuildConfigData(t *testing.T) {
 
 func TestCategorize(t *testing.T) {
 	cfg := &ConfigData{
-		Foldernames: []string{"Images", "Documents"},
-		Matchers: [][]Matcher{
-			{{Raw: "jpg"}, {Raw: "png"}},
-			{{Raw: "pdf"}, {Raw: "docx"}},
+		Rules: []Rule{
+			{Folder: "Images", Matchers: []TypedMatcher{
+				{Type: MatcherKeyword, Raw: "jpg"},
+				{Type: MatcherKeyword, Raw: "png"},
+			}},
+			{Folder: "Documents", Matchers: []TypedMatcher{
+				{Type: MatcherKeyword, Raw: "pdf"},
+				{Type: MatcherKeyword, Raw: "docx"},
+			}},
 		},
 	}
 
@@ -209,12 +318,15 @@ func TestCategorize(t *testing.T) {
 		}
 	})
 
-	t.Run("fallback wildcard", func(t *testing.T) {
+	t.Run("catch all fallback", func(t *testing.T) {
 		cfg2 := &ConfigData{
-			Foldernames: []string{"Other", "Images"},
-			Matchers: [][]Matcher{
-				{{Raw: "*"}},
-				{{Raw: "jpg"}},
+			Rules: []Rule{
+				{Folder: "Other", Priority: 0, Matchers: []TypedMatcher{
+					{Type: MatcherCatchAll},
+				}},
+				{Folder: "Images", Priority: 10, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "jpg"},
+				}},
 			},
 		}
 		got := Categorize(*cfg2, "unknown.txt")
@@ -223,12 +335,15 @@ func TestCategorize(t *testing.T) {
 		}
 	})
 
-	t.Run("exact match before fallback", func(t *testing.T) {
+	t.Run("exact match before catch all", func(t *testing.T) {
 		cfg2 := &ConfigData{
-			Foldernames: []string{"Other", "Images"},
-			Matchers: [][]Matcher{
-				{{Raw: "*"}},
-				{{Raw: "jpg"}},
+			Rules: []Rule{
+				{Folder: "Other", Priority: 0, Matchers: []TypedMatcher{
+					{Type: MatcherCatchAll},
+				}},
+				{Folder: "Images", Priority: 10, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "jpg"},
+				}},
 			},
 		}
 		got := Categorize(*cfg2, "photo.jpg")
@@ -237,11 +352,48 @@ func TestCategorize(t *testing.T) {
 		}
 	})
 
+	t.Run("same priority: later rule wins", func(t *testing.T) {
+		cfg2 := &ConfigData{
+			Rules: []Rule{
+				{Folder: "Images", Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "jpg"},
+				}},
+				{Folder: "Photos", Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "jpg"},
+				}},
+			},
+		}
+		got := Categorize(*cfg2, "photo.jpg")
+		if got != "Photos" {
+			t.Errorf("expected later rule 'Photos', got %q", got)
+		}
+	})
+
+	t.Run("priority overrides order", func(t *testing.T) {
+		cfg2 := &ConfigData{
+			Rules: []Rule{
+				{Folder: "Images", Priority: 5, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "jpg"},
+				}},
+				{Folder: "Photos", Priority: 1, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "jpg"},
+				}},
+			},
+		}
+		got := Categorize(*cfg2, "photo.jpg")
+		if got != "Images" {
+			t.Errorf("expected higher priority 'Images', got %q", got)
+		}
+	})
+
 	t.Run("regex match", func(t *testing.T) {
 		re := regexp.MustCompile(`\.go$`)
 		cfg3 := &ConfigData{
-			Foldernames: []string{"Code"},
-			Matchers:    [][]Matcher{{{Regex: re}}},
+			Rules: []Rule{
+				{Folder: "Code", Matchers: []TypedMatcher{
+					{Type: MatcherRegex, Raw: "\\.go$", Regex: re},
+				}},
+			},
 		}
 		got := Categorize(*cfg3, "main.go")
 		if got != "Code" {
@@ -250,6 +402,63 @@ func TestCategorize(t *testing.T) {
 		got2 := Categorize(*cfg3, "main.txt")
 		if got2 != "" {
 			t.Errorf("expected no match, got %q", got2)
+		}
+	})
+
+	t.Run("AND match requires all matchers", func(t *testing.T) {
+		cfg4 := &ConfigData{
+			Rules: []Rule{
+				{Folder: "Docs", MatchAll: true, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "pdf"},
+					{Type: MatcherKeyword, Raw: "report"},
+				}},
+			},
+		}
+		if got := Categorize(*cfg4, "report.pdf"); got != "Docs" {
+			t.Errorf("expected 'Docs', got %q", got)
+		}
+		if got := Categorize(*cfg4, "notes.pdf"); got != "" {
+			t.Errorf("expected no match for pdf without report, got %q", got)
+		}
+		if got := Categorize(*cfg4, "report.txt"); got != "" {
+			t.Errorf("expected no match for report without pdf, got %q", got)
+		}
+	})
+
+	t.Run("negated matcher in AND mode", func(t *testing.T) {
+		cfg5 := &ConfigData{
+			Rules: []Rule{
+				{Folder: "Docs", MatchAll: true, Priority: 10, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "pdf"},
+					{Type: MatcherKeyword, Raw: "draft", Negate: true},
+				}},
+				{Folder: "Drafts", Priority: 5, Matchers: []TypedMatcher{
+					{Type: MatcherKeyword, Raw: "pdf"},
+					{Type: MatcherKeyword, Raw: "draft"},
+				}},
+			},
+		}
+		if got := Categorize(*cfg5, "report.pdf"); got != "Docs" {
+			t.Errorf("expected 'Docs' for pdf without draft, got %q", got)
+		}
+		if got := Categorize(*cfg5, "draft.pdf"); got != "Drafts" {
+			t.Errorf("expected 'Drafts' for draft.pdf (OR match), got %q", got)
+		}
+	})
+
+	t.Run("extension match", func(t *testing.T) {
+		cfg6 := &ConfigData{
+			Rules: []Rule{
+				{Folder: "Images", Matchers: []TypedMatcher{
+					{Type: MatcherExtension, Raw: ".jpg"},
+				}},
+			},
+		}
+		if got := Categorize(*cfg6, "photo.jpg"); got != "Images" {
+			t.Errorf("expected 'Images', got %q", got)
+		}
+		if got := Categorize(*cfg6, "photo.jpg.bak"); got != "" {
+			t.Errorf("expected no match for .jpg.bak, got %q", got)
 		}
 	})
 }
