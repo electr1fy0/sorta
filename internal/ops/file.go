@@ -309,6 +309,11 @@ func WalkFilesWithIgnoreCtx(ctx context.Context, rootDir string, ignoreMatcher *
 			return err
 		}
 
+		// Skip symlinks (aliases on macOS)
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+
 		if strings.HasPrefix(d.Name(), ".") && d.Name() != "." {
 			if d.IsDir() {
 				return filepath.SkipDir

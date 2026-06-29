@@ -19,8 +19,17 @@ type IgnoreRule struct {
 	Source  string
 }
 
+var defaultBuiltinPatterns = []IgnoreRule{
+	{Pattern: "node_modules", Source: "builtin"},
+	{Pattern: "vendor", Source: "builtin"},
+	{Pattern: "__pycache__", Source: "builtin"},
+	{Pattern: "bower_components", Source: "builtin"},
+	{Pattern: "target", Source: "builtin"},
+}
+
 func LoadIgnoreMatcher(rootDir string, inlinePatterns []string) (*IgnoreMatcher, error) {
-	rules := make([]IgnoreRule, 0, len(inlinePatterns)+16)
+	rules := make([]IgnoreRule, 0, len(defaultBuiltinPatterns)+len(inlinePatterns)+16)
+	rules = append(rules, defaultBuiltinPatterns...)
 	rules = append(rules, sanitizeInlinePatterns(inlinePatterns)...)
 
 	paths := []string{
